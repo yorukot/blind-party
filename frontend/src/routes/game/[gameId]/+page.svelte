@@ -30,8 +30,6 @@
 	function handlePlayerMove(direction: Direction) {
 		lastMove = direction;
 	}
-
-	$inspect(players);
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
