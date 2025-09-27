@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+/* Custom Minecraft Font Imports */
+@font-face {
+	font-family: 'Minecraft';
+	src: url('./lib/assets/fonts/MinecraftRegular-Bmg3.otf') format('opentype');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Minecraft';
+	src: url('./lib/assets/fonts/MinecraftBold-nMK1.otf') format('opentype');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Minecraft';
+	src: url('./lib/assets/fonts/MinecraftItalic-R8Mo.otf') format('opentype');
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Minecraft';
+	src: url('./lib/assets/fonts/MinecraftBoldItalic-1y1e.otf') format('opentype');
+	font-weight: 700;
+	font-style: italic;
+	font-display: swap;
+}
+
+/* Global font configuration */
+html {
+	font-family: 'Minecraft', 'Courier New', 'Lucida Console', monospace;
+}
+
+/* Pixel-perfect rendering utilities */
+.pixelated {
+	image-rendering: pixelated;
+	image-rendering: -moz-crisp-edges;
+	image-rendering: crisp-edges;
+}
+
+.pixel-text {
+	font-family: 'Minecraft', 'Courier New', 'Lucida Console', monospace;
+	text-rendering: optimizeSpeed;
+	-webkit-font-smoothing: none;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Game-specific text styles */
+.game-text {
+	font-family: 'Minecraft', 'Courier New', 'Lucida Console', monospace;
+	text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.8);
+	letter-spacing: 0.1em;
+}
