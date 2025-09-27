@@ -3,18 +3,11 @@
     import logo from '$lib/assets/blind-party.png';
     import PixelButton from '../lib/components/ui/pixel-button.svelte';
     import PixelInput from '../lib/components/ui/pixel-input.svelte';
-    import { gameState } from '$lib/api/game-state.svelte.js';
-    import { PUBLIC_API_BASE_URL, PUBLIC_WS_BASE_URL } from '$env/static/public';
+    import { createGame as apiCreateGame, HttpApiError } from '$lib/api/http';
 
     let gameId = $state('');
     let isCreating = $state(false);
     let createError = $state<string | null>(null);
-
-    // Initialize game state
-    gameState.initialize({
-        apiBaseUrl: PUBLIC_API_BASE_URL || 'http://localhost:8080',
-        wsBaseUrl: PUBLIC_WS_BASE_URL || 'ws://localhost:8080'
-    });
 
     function joinGame() {
         if (gameId.trim()) {
@@ -27,10 +20,14 @@
         createError = null;
 
         try {
-            const newGameId = await gameState.createGame();
-            goto(`/game/${newGameId}`);
+            const response = await apiCreateGame();
+            goto(`/game/${response.game_id}`);
         } catch (error) {
-            createError = error instanceof Error ? error.message : 'Failed to create game';
+            if (error instanceof HttpApiError) {
+                createError = error.message;
+            } else {
+                createError = error instanceof Error ? error.message : 'Failed to create game';
+            }
         } finally {
             isCreating = false;
         }

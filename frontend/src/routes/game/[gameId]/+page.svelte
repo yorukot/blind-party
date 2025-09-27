@@ -1,15 +1,17 @@
 <script lang="ts">
     import { PUBLIC_API_BASE_URL, PUBLIC_WS_BASE_URL } from '$env/static/public';
-    import { gameState } from '$lib/api/game-state.svelte.js';
-    import GameStatusBar from '$lib/components/game/game-status-bar.svelte';
+    import { createWebSocketClient, type WebSocketGameClient } from '$lib/api/websocket';
     import CountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
+    import GameStatusBar from '$lib/components/game/game-status-bar.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster from '$lib/components/game/player-roster.svelte';
     import JoinForm from '$lib/components/ui/join-form.svelte';
     import { playerState } from '$lib/player-state.svelte.js';
-    import type { PlayerOnBoard } from '$lib/types/player';
-    import { onDestroy, onMount } from 'svelte';
+    import type { GameStateResponse } from '$lib/types/game';
+    import { gamePlayerToPlayerSummary } from '$lib/types/game';
+    import type { PlayerOnBoard, PlayerSummary } from '$lib/types/player';
+    import { onDestroy } from 'svelte';
 
     interface Props {
         params: {
@@ -19,226 +21,99 @@
 
     let { params }: Props = $props();
 
-    // Connection state
-    let connectionError = $state<string | null>(null);
-    let isConnecting = $state(false);
-    let username = $state('');
     let isJoined = $state(false);
+    let username = $state('');
+    let isConnecting = $state(false);
+    let connectionError = $state<string | null>(null);
+    let connectionState = $state('disconnected');
 
-    // Initialize game state
-    gameState.initialize({
-        apiBaseUrl: PUBLIC_API_BASE_URL || 'http://localhost:8080',
-        wsBaseUrl: PUBLIC_WS_BASE_URL || 'ws://localhost:8080'
+    // WebSocket client
+    let wsClient: WebSocketGameClient | null = null;
+
+    // Game state from WebSocket
+    let gameState = $state<GameStateResponse>({
+        game_id: '',
+        phase: 'pre-game',
+        players: [],
+        map: [],
+        countdown_seconds: null
     });
 
-    // Get reactive data from game state
-    let mapSize = $derived(gameState.mapSize);
-    let gameMap = $derived(gameState.gameMap);
-    let players = $derived(gameState.players);
-    let localPlayer = $derived(gameState.localPlayer);
-    let connectionState = $derived(gameState.connectionState);
+    // Derived values for UI
+    let players = $derived(gameState.players.map(gamePlayerToPlayerSummary));
+    let mapSize = $derived(Math.max(gameState.map.length || 10, gameState.map[0]?.length || 10));
+    let gameMap = $derived(gameState.map);
+    let remainingSeconds = $derived(gameState.countdown_seconds || 0);
 
-    // Join game function
+    // Player-specific derived values
+    let selfPlayerSummary = $derived(players.find((p) => p.name === username) || null);
+    let selfPlayerOnBoard = $derived(
+        selfPlayerSummary && selfPlayerSummary.position
+            ? (selfPlayerSummary as PlayerOnBoard)
+            : null
+    );
+    let otherPlayersOnBoard = $derived(
+        players.filter((p) => p.name !== username && p.position) as PlayerOnBoard[]
+    );
+
+    function createWebSocketGameClient() {
+        return createWebSocketClient({
+            autoReconnect: true,
+            maxReconnectAttempts: 5,
+            reconnectDelay: 1000,
+            pingInterval: 30000
+        });
+    }
+
+    function setupEventHandlers(client: WebSocketGameClient) {
+        client.on('onStateChange', (state) => {
+            connectionState = state;
+            if (state === 'connected') {
+                isJoined = true;
+            }
+        });
+
+        client.on('onGameUpdate', (updatedGameState) => {
+            gameState = updatedGameState;
+        });
+
+        client.on('onError', (error) => {
+            connectionError = error;
+            isConnecting = false;
+        });
+    }
+
     async function joinGame() {
-        if (!username.trim()) return;
+        if (!username.trim()) {
+            connectionError = 'Please enter a username';
+            return;
+        }
 
         isConnecting = true;
         connectionError = null;
 
         try {
-            await gameState.joinGame(params.gameId, username.trim());
-            isJoined = true;
+            // Initialize WebSocket client
+            wsClient = createWebSocketGameClient();
+
+            // Set up event listeners
+            setupEventHandlers(wsClient);
+
+            // Connect to the game
+            await wsClient.connect(params.gameId, username.trim());
         } catch (error) {
-            connectionError = error instanceof Error ? error.message : 'Failed to join game';
+            connectionError = error instanceof Error ? error.message : 'Failed to connect to game';
+            isConnecting = false;
         } finally {
             isConnecting = false;
         }
     }
 
-    // Sync player state with game state
-    $effect(() => {
-        if (localPlayer) {
-            playerState.syncWithGameState(localPlayer);
-        }
-    });
-
-    // Set up position update callback
-    $effect(() => {
-        if (isJoined && connectionState === 'connected') {
-            playerState.setPositionUpdateCallback((x, y) => {
-                gameState.updatePlayerPosition(x, y);
-            });
-        } else {
-            playerState.setPositionUpdateCallback(null);
-        }
-    });
-
-    let selfPlayerOnBoard = $derived.by(() => {
-        const player = playerState.localPlayer;
-        if (!player) return null;
-        return {
-            ...player,
-            position: playerState.localPosition
-        };
-    });
-    let selfPlayerSummary = $derived(localPlayer);
-
-    let otherPlayersOnBoard = $derived.by(() =>
-        players
-            .filter((player) => player.position && player.id !== localPlayer?.id)
-            .map(
-                (player) =>
-                    ({
-                        ...player,
-                        position: player.position!
-                    }) as PlayerOnBoard
-            )
-    );
-
-    $effect(() => {
-        if (!import.meta.env.DEV) {
-            return;
-        }
-
-        const remoteSummaries = otherPlayersOnBoard.map((player) => ({
-            id: player.id,
-            name: player.name,
-            position: player.position,
-            status: player.status
-        }));
-
-        console.debug('[GamePage] remote players derived', remoteSummaries);
-    });
-
-    $effect(() => {
-        if (!import.meta.env.DEV || !selfPlayerOnBoard) {
-            return;
-        }
-
-        console.debug('[GamePage] self player derived', {
-            id: selfPlayerOnBoard.id,
-            position: selfPlayerOnBoard.position,
-            status: selfPlayerOnBoard.status
-        });
-    });
-
-    const MAX_PLAYER_SPEED = 4; // tiles per second
-    const ACCELERATION_RATE = 12; // tiles per second squared
-    const FRICTION_RATE = 10; // tiles per second squared
-
-    function clampToBoard(value: number) {
-        const maxIndex = Math.max(0, mapSize - 1);
-        if (value < 0) {
-            return 0;
-        }
-        if (value > maxIndex) {
-            return maxIndex;
-        }
-        return value;
-    }
-
-    function updateLocalPlayer(deltaSeconds: number) {
-        if (!playerState.localPlayerId) {
-            return;
-        }
-
-        const directions = playerState.activeDirections;
-        const hasInput = directions.size > 0;
-
-        const velocity = playerState.localVelocity;
-        let nextVx = velocity.x;
-        let nextVy = velocity.y;
-        const currentPosition = playerState.localPosition;
-
-        if (hasInput) {
-            let dx = 0;
-            let dy = 0;
-
-            if (directions.has('up')) {
-                dy -= 1;
-            }
-            if (directions.has('down')) {
-                dy += 1;
-            }
-            if (directions.has('left')) {
-                dx -= 1;
-            }
-            if (directions.has('right')) {
-                dx += 1;
-            }
-
-            const magnitude = Math.hypot(dx, dy);
-            if (magnitude > 0) {
-                const ax = (dx / magnitude) * ACCELERATION_RATE;
-                const ay = (dy / magnitude) * ACCELERATION_RATE;
-                nextVx += ax * deltaSeconds;
-                nextVy += ay * deltaSeconds;
-            }
-        } else {
-            const speed = Math.hypot(nextVx, nextVy);
-            if (speed > 0) {
-                const decel = Math.min(speed, FRICTION_RATE * deltaSeconds);
-                const scale = (speed - decel) / speed;
-                nextVx *= scale;
-                nextVy *= scale;
-            }
-        }
-
-        const nextSpeed = Math.hypot(nextVx, nextVy);
-        if (nextSpeed > MAX_PLAYER_SPEED) {
-            const scale = MAX_PLAYER_SPEED / nextSpeed;
-            nextVx *= scale;
-            nextVy *= scale;
-        }
-
-        let nextX = currentPosition.x + nextVx * deltaSeconds;
-        let nextY = currentPosition.y + nextVy * deltaSeconds;
-
-        const clampedX = clampToBoard(nextX);
-        const clampedY = clampToBoard(nextY);
-
-        if (clampedX !== nextX) {
-            nextX = clampedX;
-            nextVx = 0;
-        }
-        if (clampedY !== nextY) {
-            nextY = clampedY;
-            nextVy = 0;
-        }
-
-        playerState.updateLocalPlayerVelocity({ x: nextVx, y: nextVy });
-        playerState.updateLocalPlayerPosition({ x: nextX, y: nextY });
-    }
-
-    // Get remaining time from game state
-    let remainingSeconds = $derived(Math.ceil(gameState.remainingTime));
-
-    onMount(() => {
-        let rafId = 0;
-        let lastTimestamp = 0;
-        const loop = (timestamp: number) => {
-            if (!lastTimestamp) {
-                lastTimestamp = timestamp;
-            }
-
-            const deltaSeconds = (timestamp - lastTimestamp) / 1000;
-            lastTimestamp = timestamp;
-
-            updateLocalPlayer(deltaSeconds);
-            rafId = requestAnimationFrame(loop);
-        };
-
-        rafId = requestAnimationFrame(loop);
-
-        return () => {
-            cancelAnimationFrame(rafId);
-        };
-    });
-
+    // Cleanup on component destroy
     onDestroy(() => {
-        // Clean up when component is destroyed
-        gameState.disconnect();
-        playerState.reset();
+        if (wsClient) {
+            wsClient.disconnect();
+        }
     });
 </script>
 
@@ -280,40 +155,12 @@
                     progress={(players.length / 2) * 100}
                     fillColor="#f59e0b"
                 />
-            {:else if gameState.currentPhase === 'preparation_started'}
+            {:else if gameState.phase === 'in-game'}
                 <GameStatusBar
-                    label="Preparation Phase"
-                    displayText="{Math.ceil(gameState.remainingTime)}s"
-                    progress={(gameState.remainingTime / 5) * 100}
-                    fillColor="#f97316"
-                />
-            {:else if gameState.currentPhase === 'color-call'}
-                <GameStatusBar
-                    label="Color Call Phase"
-                    displayText="{Math.ceil(gameState.remainingTime)}s"
-                    progress={(gameState.remainingTime / 1) * 100}
-                    fillColor="#22c55e"
-                />
-            {:else if gameState.currentPhase === 'rush-phase'}
-                <GameStatusBar
-                    label="Rush Phase"
-                    displayText="{Math.ceil(gameState.remainingTime)}s"
-                    progress={(gameState.remainingTime / 4) * 100}
-                    fillColor="#ef4444"
-                />
-            {:else if gameState.currentPhase === 'elimination-check'}
-                <GameStatusBar
-                    label="Elimination Check"
-                    displayText="Checking..."
-                    progress={100}
-                    fillColor="#8b5cf6"
-                />
-            {:else if gameState.currentPhase === 'round-transition'}
-                <GameStatusBar
-                    label="Round Results"
-                    displayText="Next Round Soon"
-                    progress={100}
-                    fillColor="#06b6d4"
+                    label="Game In Progress"
+                    displayText={remainingSeconds > 0 ? `${remainingSeconds}s` : 'Active'}
+                    progress={remainingSeconds > 0 ? (remainingSeconds / 30) * 100 : 100}
+                    fillColor="#3b82f6"
                 />
             {:else if gameState.phase === 'settlement'}
                 <GameStatusBar
@@ -321,13 +168,6 @@
                     displayText="Final Results"
                     progress={100}
                     fillColor="#10b981"
-                />
-            {:else if gameState.phase === 'in-game'}
-                <GameStatusBar
-                    label="Game In Progress"
-                    displayText="Active"
-                    progress={100}
-                    fillColor="#3b82f6"
                 />
             {:else}
                 <GameStatusBar
