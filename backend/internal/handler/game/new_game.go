@@ -45,8 +45,8 @@ func (h *GameHandler) NewGame(w http.ResponseWriter, r *http.Request) {
 
 		// Configuration
 		Config: schema.GameConfig{
-			MapWidth:            256,
-			MapHeight:           256,
+			MapWidth:            20,
+			MapHeight:           20,
 			CountdownSequence:   []int{30, 25, 20, 15, 10, 8, 6, 4, 3, 2},
 			SpectatorOnlyRounds: 2,
 
@@ -63,22 +63,22 @@ func (h *GameHandler) NewGame(w http.ResponseWriter, r *http.Request) {
 			},
 
 			// Scoring Configuration
-			SurvivalPointsPerRound:    10,
+			SurvivalPointsPerRound:     10,
 			EliminationBonusMultiplier: 5,
-			SpeedBonusThreshold:       1.0,
-			PerfectBonusThreshold:     2.0,
-			SpeedBonusPoints:          2,
-			PerfectBonusPoints:        50,
-			FinalWinnerBonus:          100,
-			EnduranceBonus:            200,
-			StreakBonuses:             map[int]int{3: 30, 5: 75, 10: 200},
+			SpeedBonusThreshold:        1.0,
+			PerfectBonusThreshold:      2.0,
+			SpeedBonusPoints:           2,
+			PerfectBonusPoints:         50,
+			FinalWinnerBonus:           100,
+			EnduranceBonus:             200,
+			StreakBonuses:              map[int]int{3: 30, 5: 75, 10: 200},
 
 			// Movement & Anti-cheat
-			BaseMovementSpeed:    4.0,
-			MaxMovementSpeed:     5.0,
-			LagCompensationMs:    100,
-			PositionUpdateHz:     10,
-			TimerUpdateHz:        20,
+			BaseMovementSpeed: 4.0,
+			MaxMovementSpeed:  5.0,
+			LagCompensationMs: 100,
+			PositionUpdateHz:  10,
+			TimerUpdateHz:     20,
 		},
 
 		// Initialize rounds slice
@@ -107,14 +107,14 @@ func (h *GameHandler) NewGame(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// generateRandomMap creates a 256x256 map with equal distribution of 16 wool colors
+// generateRandomMap creates a 20x20 map with equal distribution of 16 wool colors
 func generateRandomMap() schema.MapData {
 	var mapData schema.MapData
 
 	// Create a list of all possible positions
-	positions := make([]struct{ x, y int }, 0, 65536) // 256*256 = 65536 total blocks
-	for i := 0; i < 256; i++ { // height (rows)
-		for j := 0; j < 256; j++ { // width (columns)
+	positions := make([]struct{ x, y int }, 0, 400) // 20*20 = 400 total blocks
+	for i := 0; i < 20; i++ {                       // height (rows)
+		for j := 0; j < 20; j++ { // width (columns)
 			positions = append(positions, struct{ x, y int }{j, i})
 		}
 	}
@@ -124,8 +124,8 @@ func generateRandomMap() schema.MapData {
 		positions[i], positions[j] = positions[j], positions[i]
 	})
 
-	// Distribute colors evenly: 16 colors * 4096 blocks = 65536 total blocks (perfect distribution)
-	blocksPerColor := 4096 // 65536 / 16 = 4096 blocks per color
+	// Distribute colors evenly: 16 colors * 25 blocks = 400 total blocks (perfect distribution)
+	blocksPerColor := 25 // 400 / 16 = 25 blocks per color
 
 	posIndex := 0
 	for color := 0; color < 16; color++ {
@@ -142,10 +142,10 @@ func generateRandomMap() schema.MapData {
 
 // mapToArray converts the 2D map array to a format suitable for JSON serialization
 func mapToArray(mapData schema.MapData) [][]int {
-	result := make([][]int, 256) // height = 256
-	for i := 0; i < 256; i++ {
-		result[i] = make([]int, 256) // width = 256
-		for j := 0; j < 256; j++ {
+	result := make([][]int, 20) // height = 20
+	for i := 0; i < 20; i++ {
+		result[i] = make([]int, 20) // width = 20
+		for j := 0; j < 20; j++ {
 			result[i][j] = int(mapData[i][j])
 		}
 	}

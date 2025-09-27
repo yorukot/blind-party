@@ -188,9 +188,10 @@ func (h *GameHandler) eliminatePlayers(game *schema.Game) {
 			continue
 		}
 
-		// Check if player is within map bounds (256x256 map)
-		x := int(player.Position.X)
-		y := int(player.Position.Y)
+		// Check if player is within map bounds (20x20 map with 1-20 coordinate system)
+		// Convert from 1-based coordinates to 0-based array indices
+		x := int(player.Position.X - 1) // Convert 1-20 to 0-19
+		y := int(player.Position.Y - 1)
 
 		if x < 0 || x >= game.Config.MapWidth || y < 0 || y >= game.Config.MapHeight {
 			// Player is out of bounds, eliminate them
@@ -294,9 +295,9 @@ func (h *GameHandler) validatePlayerMovements(game *schema.Game) {
 		// Calculate actual speed (blocks per second)
 		speed := distance / timeDelta
 
-		// Check for boundary violations (256x256 map)
-		if player.Position.X < 0 || player.Position.X >= float64(game.Config.MapWidth) ||
-			player.Position.Y < 0 || player.Position.Y >= float64(game.Config.MapHeight) {
+		// Check for boundary violations (20x20 map with 1-20 coordinate system)
+		if player.Position.X < 1.0 || player.Position.X > 21.0 ||
+			player.Position.Y < 1.0 || player.Position.Y > 21.0 {
 			log.Printf("Player %s (%s) moved out of bounds: (%.2f, %.2f). Resetting position.",
 				player.ID, player.Name, player.Position.X, player.Position.Y)
 
@@ -549,9 +550,10 @@ func (h *GameHandler) eliminatePlayersWithLagCompensation(game *schema.Game) {
 			log.Printf("Applying lag compensation for player %s (%s)", player.ID, player.Name)
 		}
 
-		// Check if player is within map bounds (256x256 map)
-		x := int(player.Position.X)
-		y := int(player.Position.Y)
+		// Check if player is within map bounds (20x20 map with 1-20 coordinate system)
+		// Convert from 1-based coordinates to 0-based array indices
+		x := int(player.Position.X - 1) // Convert 1-20 to 0-19
+		y := int(player.Position.Y - 1)
 
 		if x < 0 || x >= game.Config.MapWidth || y < 0 || y >= game.Config.MapHeight {
 			// Player is out of bounds, eliminate them

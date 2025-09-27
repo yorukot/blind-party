@@ -59,7 +59,7 @@ func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	player := &schema.Player{
 		ID:           userID,
 		Name:         name,
-		Position:     schema.Position{X: 128, Y: 128}, // Start at center of map
+		Position:     schema.Position{X: 10.5, Y: 10.5}, // Start at center of 20x20 map
 		IsSpectator:  false,
 		IsEliminated: false,
 		JoinedRound:  len(game.Rounds) + 1,

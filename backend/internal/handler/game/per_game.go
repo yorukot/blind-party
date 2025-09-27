@@ -103,9 +103,10 @@ func (h *GameHandler) assignSpawnPositions(game *schema.Game) {
 	for y := 0; y < game.Config.MapHeight; y++ {
 		for x := 0; x < game.Config.MapWidth; x++ {
 			if game.Map[y][x] != schema.Air { // Not Air block
+				// Use 1-based coordinate system (1-20 range) with 2 decimal precision
 				validPositions = append(validPositions, schema.Position{
-					X: float64(x) + 0.5, // Center of block
-					Y: float64(y) + 0.5,
+					X: float64(x+1) + 0.5, // Block coordinates: 1.5, 2.5, ..., 20.5
+					Y: float64(y+1) + 0.5,
 				})
 			}
 		}
