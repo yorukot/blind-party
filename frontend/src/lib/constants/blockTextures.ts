@@ -14,7 +14,8 @@ export enum WoolColor {
     Brown = 12,
     Green = 13,
     Red = 14,
-    Black = 15
+    Black = 15,
+    Air = 16
 }
 
 export const BLOCK_TEXTURE_NAMES = [

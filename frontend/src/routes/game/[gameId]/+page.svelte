@@ -1,12 +1,14 @@
 <script lang="ts">
+    import { gameState } from '$lib/api/game-state.svelte.js';
     import CountdownBar from '$lib/components/game/countdown-bar.svelte';
     import CountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster from '$lib/components/game/player-roster.svelte';
     import { playerState } from '$lib/player-state.svelte.js';
-    import type { PlayerOnBoard, PlayerSummary } from '$lib/types/player';
-    import { onMount } from 'svelte';
+    import type { PlayerOnBoard } from '$lib/types/player';
+    import { onDestroy, onMount } from 'svelte';
+    import { PUBLIC_API_BASE_URL, PUBLIC_WS_BASE_URL } from '$env/static/public';
 
     interface Props {
         params: {
@@ -15,49 +17,67 @@
     }
 
     let { params }: Props = $props();
-    let mapSize = $state(18);
-    let players = $state<PlayerSummary[]>([
-        {
-            id: '1',
-            name: 'PixelPanda',
-            status: 'ingame',
-            accent: 'from-emerald-400 to-emerald-600',
-            position: { x: 4, y: 6 }
-        },
-        {
-            id: '2',
-            name: 'ShadowFox',
-            status: 'ingame',
-            accent: 'from-blue-400 to-indigo-600',
-            position: { x: 10, y: 8 }
-        },
-        {
-            id: '4',
-            name: 'ByteKnight',
-            status: 'eliminated',
-            accent: 'from-slate-500 to-slate-700',
-            position: { x: 14, y: 2 }
+
+    // Connection state
+    let connectionError = $state<string | null>(null);
+    let isConnecting = $state(false);
+    let username = $state('');
+    let isJoined = $state(false);
+
+    // Initialize game state
+    gameState.initialize({
+        apiBaseUrl: PUBLIC_API_BASE_URL || 'http://localhost:8080',
+        wsBaseUrl: PUBLIC_WS_BASE_URL || 'ws://localhost:8080'
+    });
+
+    // Get reactive data from game state
+    let mapSize = $derived(gameState.mapSize);
+    let gameMap = $derived(gameState.gameMap);
+    let players = $derived(gameState.players);
+    let localPlayer = $derived(gameState.localPlayer);
+    let connectionState = $derived(gameState.connectionState);
+
+    // Join game function
+    async function joinGame() {
+        if (!username.trim()) return;
+
+        isConnecting = true;
+        connectionError = null;
+
+        try {
+            await gameState.joinGame(params.gameId, username.trim());
+            isJoined = true;
+        } catch (error) {
+            connectionError = error instanceof Error ? error.message : 'Failed to join game';
+        } finally {
+            isConnecting = false;
         }
-    ]);
-
-    const sampleLocalPlayer: PlayerOnBoard = {
-        id: '3',
-        name: 'NeonNova',
-        status: 'spectating',
-        accent: 'from-pink-400 to-rose-600',
-        position: { x: 2, y: 12 }
-    };
-
-    if (!playerState.localPlayer) {
-        playerState.setLocalPlayer(sampleLocalPlayer);
     }
 
-    let selfPlayerOnBoard = $derived.by(() => playerState.localPlayer);
-    let selfPlayerSummary = $derived.by(() => playerState.localPlayer);
+    // Sync player state with game state
+    $effect(() => {
+        if (localPlayer) {
+            playerState.syncWithGameState(localPlayer);
+        }
+    });
+
+    // Set up position update callback
+    $effect(() => {
+        if (isJoined && connectionState === 'connected') {
+            playerState.setPositionUpdateCallback((x, y) => {
+                gameState.updatePlayerPosition(x, y);
+            });
+        } else {
+            playerState.setPositionUpdateCallback(null);
+        }
+    });
+
+    let selfPlayerOnBoard = $derived(localPlayer);
+    let selfPlayerSummary = $derived(localPlayer);
 
     let otherPlayersOnBoard = $derived.by(() =>
         players
-            .filter((player) => player.position)
+            .filter((player) => player.position && player.id !== localPlayer?.id)
             .map(
                 (player) =>
                     ({
@@ -155,6 +175,9 @@
         playerState.updateLocalPlayerPosition({ x: nextX, y: nextY });
     }
 
+    // Get remaining time from game state
+    let remainingSeconds = $derived(Math.ceil(gameState.remainingTime));
+
     onMount(() => {
         let rafId = 0;
         let lastTimestamp = 0;
@@ -177,52 +200,103 @@
         };
     });
 
-    let remainingSeconds = $state(5);
-    onMount(() => {
-        setInterval(() => {
-            if (remainingSeconds > 0) {
-                remainingSeconds -= 1;
-            }
-        }, 1000);
+    onDestroy(() => {
+        // Clean up when component is destroyed
+        gameState.disconnect();
+        playerState.reset();
     });
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
-    <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6 sm:py-12">
-        <header class="flex flex-col gap-3 text-center lg:text-left">
-            <p class="text-sm tracking-[0.35em] text-blue-200/80 uppercase">
-                Blind Party Prototype
-            </p>
-            <h1
-                class="font-minecraft text-3xl tracking-wider text-yellow-300 uppercase drop-shadow-[4px_4px_0px_rgba(0,0,0,0.65)] sm:text-4xl"
-            >
-                Game ID: <span class="text-white">{params.gameId}</span>
-            </h1>
-            <p class="text-base text-blue-100/80">
-                Preview the arena layout and lobby roster while we hook up the live game feed.
-            </p>
-        </header>
+    {#if !isJoined}
+        <!-- Username input form -->
+        <div class="flex min-h-screen flex-col items-center justify-center p-8">
+            <div class="flex w-full max-w-md flex-col items-center space-y-8">
+                <header class="text-center">
+                    <p class="mb-2 text-sm tracking-[0.35em] text-blue-200/80 uppercase">
+                        Blind Party
+                    </p>
+                    <h1
+                        class="font-minecraft text-3xl tracking-wider text-yellow-300 uppercase drop-shadow-[4px_4px_0px_rgba(0,0,0,0.65)]"
+                    >
+                        Game: <span class="text-white">{params.gameId}</span>
+                    </h1>
+                </header>
 
-        <CountdownBar duration={90} fillColor="#facc15" />
+                <div class="w-full space-y-4">
+                    <input
+                        bind:value={username}
+                        placeholder="Enter your username"
+                        class="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        maxlength="20"
+                        disabled={isConnecting}
+                    />
 
-        <CountdownOverlay {remainingSeconds} />
+                    {#if connectionError}
+                        <p class="text-sm text-red-400">{connectionError}</p>
+                    {/if}
 
-        <div class="flex flex-col gap-8 lg:flex-row">
-            <GameBoardPanel
-                {mapSize}
-                players={otherPlayersOnBoard}
-                selfPlayer={selfPlayerOnBoard}
-            />
-            <!-- Show movement controls between board and roster on mobile -->
-            <div class="lg:hidden">
+                    <button
+                        onclick={joinGame}
+                        disabled={!username.trim() || isConnecting}
+                        class="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-600"
+                    >
+                        {isConnecting ? 'Joining...' : 'Join Game'}
+                    </button>
+
+                    <div class="text-center">
+                        <p class="text-sm text-slate-400">
+                            Connection: <span class="text-blue-300">{connectionState}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {:else}
+        <!-- Game interface -->
+        <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6 sm:py-12">
+            <header class="flex flex-col gap-3 text-center lg:text-left">
+                <p class="text-sm tracking-[0.35em] text-blue-200/80 uppercase">
+                    Blind Party - {username}
+                </p>
+                <h1
+                    class="font-minecraft text-3xl tracking-wider text-yellow-300 uppercase drop-shadow-[4px_4px_0px_rgba(0,0,0,0.65)] sm:text-4xl"
+                >
+                    Game ID: <span class="text-white">{params.gameId}</span>
+                </h1>
+                <p class="text-base text-blue-100/80">
+                    {#if connectionState === 'connected'}
+                        Connected to game server - {gameState.phase}
+                    {:else}
+                        Connection status: {connectionState}
+                    {/if}
+                </p>
+            </header>
+
+            <CountdownBar duration={90} fillColor="#facc15" />
+
+            {#if remainingSeconds > 0}
+                <CountdownOverlay {remainingSeconds} />
+            {/if}
+
+            <div class="flex flex-col gap-8 lg:flex-row">
+                <GameBoardPanel
+                    {mapSize}
+                    {gameMap}
+                    players={otherPlayersOnBoard}
+                    selfPlayer={selfPlayerOnBoard}
+                />
+                <!-- Show movement controls between board and roster on mobile -->
+                <div class="lg:hidden">
+                    <PlayerMovementControls />
+                </div>
+                <PlayerRoster {players} selfPlayer={selfPlayerSummary} />
+            </div>
+
+            <!-- Keep the original controls visible only on large screens (desktop) -->
+            <div class="hidden lg:block">
                 <PlayerMovementControls />
             </div>
-            <PlayerRoster bind:players selfPlayer={selfPlayerSummary} />
         </div>
-
-        <!-- Keep the original controls visible only on large screens (desktop) -->
-        <div class="hidden lg:block">
-            <PlayerMovementControls />
-        </div>
-    </div>
+    {/if}
 </div>

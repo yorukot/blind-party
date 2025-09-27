@@ -3,12 +3,36 @@
     import logo from '$lib/assets/blind-party.png';
     import PixelButton from '../lib/components/ui/pixel-button.svelte';
     import PixelInput from '../lib/components/ui/pixel-input.svelte';
+    import { gameState } from '$lib/api/game-state.svelte.js';
+    import { PUBLIC_API_BASE_URL, PUBLIC_WS_BASE_URL } from '$env/static/public';
 
     let gameId = $state('');
+    let isCreating = $state(false);
+    let createError = $state<string | null>(null);
+
+    // Initialize game state
+    gameState.initialize({
+        apiBaseUrl: PUBLIC_API_BASE_URL || 'http://localhost:8080',
+        wsBaseUrl: PUBLIC_WS_BASE_URL || 'ws://localhost:8080'
+    });
 
     function joinGame() {
         if (gameId.trim()) {
             goto(`/game/${gameId.trim()}`);
+        }
+    }
+
+    async function createGame() {
+        isCreating = true;
+        createError = null;
+
+        try {
+            const newGameId = await gameState.createGame();
+            goto(`/game/${newGameId}`);
+        } catch (error) {
+            createError = error instanceof Error ? error.message : 'Failed to create game';
+        } finally {
+            isCreating = false;
         }
     }
 </script>
@@ -25,6 +49,20 @@
             <PixelButton variant="primary" disabled={!gameId.trim()} onclick={joinGame}>
                 Join Game
             </PixelButton>
+
+            <div class="flex items-center justify-center">
+                <div class="h-px bg-slate-600 flex-1"></div>
+                <span class="px-4 text-sm text-slate-400">OR</span>
+                <div class="h-px bg-slate-600 flex-1"></div>
+            </div>
+
+            <PixelButton variant="secondary" disabled={isCreating} onclick={createGame}>
+                {isCreating ? 'Creating...' : 'Create New Game'}
+            </PixelButton>
+
+            {#if createError}
+                <p class="text-red-400 text-sm text-center">{createError}</p>
+            {/if}
         </div>
     </div>
 </div>

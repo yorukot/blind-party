@@ -3,15 +3,22 @@ import type { PlayerOnBoard, PlayerPosition } from '$lib/types/player';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-/*
-Class storing our own player's state
- **/
+/**
+ * Callback function type for position updates.
+ */
+export type PositionUpdateCallback = (x: number, y: number) => void;
+
+/**
+ * Class storing our own player's state with API integration.
+ */
 class PlayerState {
     activeDirections = $state<SvelteSet<Direction>>(new SvelteSet());
     localPlayer = $state<PlayerOnBoard | null>(null);
     localPlayerId = $state<string | null>(null);
     localVelocity = $state<{ x: number; y: number }>({ x: 0, y: 0 });
     private pressedKeys = new Set<string>();
+    private positionUpdateCallback: PositionUpdateCallback | null = null;
+    private lastSentPosition: PlayerPosition | null = null;
 
     private keyDirectionMap: Record<string, Direction> = {
         ArrowUp: 'up',
@@ -93,7 +100,26 @@ class PlayerState {
         return Math.round(value * 100) / 100;
     }
 
-    updateLocalPlayerPosition(position: PlayerPosition) {
+
+    updateLocalPlayerVelocity(velocity: { x: number; y: number }) {
+        const roundedX = this.roundToGridCoordinate(velocity.x);
+        const roundedY = this.roundToGridCoordinate(velocity.y);
+        this.localVelocity = { x: roundedX, y: roundedY };
+    }
+
+    /**
+     * Set a callback function to be called when the player position changes.
+     * This is used to send position updates to the API.
+     */
+    setPositionUpdateCallback(callback: PositionUpdateCallback | null): void {
+        this.positionUpdateCallback = callback;
+    }
+
+    /**
+     * Update the local player position and optionally send to API.
+     * This method also triggers the position update callback if set.
+     */
+    updateLocalPlayerPosition(position: PlayerPosition, skipAPIUpdate = false): void {
         const current = this.localPlayer;
         if (!current) {
             return;
@@ -102,6 +128,7 @@ class PlayerState {
         const roundedX = this.roundToGridCoordinate(position.x);
         const roundedY = this.roundToGridCoordinate(position.y);
         const epsilon = 0.0001;
+
         if (
             Math.abs(roundedX - current.position.x) < epsilon &&
             Math.abs(roundedY - current.position.y) < epsilon
@@ -109,16 +136,66 @@ class PlayerState {
             return;
         }
 
+        const newPosition = { x: roundedX, y: roundedY };
+
         this.localPlayer = {
             ...current,
-            position: { x: roundedX, y: roundedY }
+            position: newPosition
         };
+
+        // Send position update to API if callback is set and we're not skipping
+        if (!skipAPIUpdate && this.positionUpdateCallback && this.shouldSendPositionUpdate(newPosition)) {
+            this.positionUpdateCallback(roundedX, roundedY);
+            this.lastSentPosition = newPosition;
+        }
     }
 
-    updateLocalPlayerVelocity(velocity: { x: number; y: number }) {
-        const roundedX = this.roundToGridCoordinate(velocity.x);
-        const roundedY = this.roundToGridCoordinate(velocity.y);
-        this.localVelocity = { x: roundedX, y: roundedY };
+    /**
+     * Determine if we should send a position update to the API.
+     * This reduces unnecessary network traffic by only sending when position changes significantly.
+     */
+    private shouldSendPositionUpdate(newPosition: PlayerPosition): boolean {
+        if (!this.lastSentPosition) {
+            return true;
+        }
+
+        const dx = Math.abs(newPosition.x - this.lastSentPosition.x);
+        const dy = Math.abs(newPosition.y - this.lastSentPosition.y);
+        const threshold = 0.01; // Minimum movement threshold
+
+        return dx >= threshold || dy >= threshold;
+    }
+
+    /**
+     * Sync the local player with data from the game state.
+     * This is called when we receive updates from the API.
+     */
+    syncWithGameState(player: PlayerOnBoard | null): void {
+        if (!player) {
+            this.localPlayer = null;
+            this.localPlayerId = null;
+            this.localVelocity = { x: 0, y: 0 };
+            this.lastSentPosition = null;
+            return;
+        }
+
+        // Update without triggering API update to avoid feedback loop
+        this.localPlayer = player;
+        this.localPlayerId = player.id;
+        this.lastSentPosition = player.position;
+    }
+
+    /**
+     * Reset the player state to initial values.
+     */
+    reset(): void {
+        this.activeDirections.clear();
+        this.localPlayer = null;
+        this.localPlayerId = null;
+        this.localVelocity = { x: 0, y: 0 };
+        this.pressedKeys.clear();
+        this.lastSentPosition = null;
+        this.positionUpdateCallback = null;
     }
 }
 
