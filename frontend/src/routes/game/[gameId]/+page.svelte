@@ -1,8 +1,6 @@
 <script lang="ts">
 	import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
-	import PlayerMovementControls, {
-		type Direction
-	} from '$lib/components/game/player-movement-controls.svelte';
+	import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
 	import PlayerRoster, { type PlayerSummary } from '$lib/components/game/player-roster.svelte';
 
 	interface Props {
@@ -25,11 +23,6 @@
 		{ id: '4', name: 'ByteKnight', status: 'eliminated', accent: 'from-slate-500 to-slate-700' }
 	]);
 
-	let lastMove = $state<Direction | null>(null);
-
-	function handlePlayerMove(direction: Direction) {
-		lastMove = direction;
-	}
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
@@ -52,14 +45,14 @@
 			<GameBoardPanel {mapSize} />
 			<!-- Show movement controls between board and roster on mobile -->
 			<div class="lg:hidden">
-				<PlayerMovementControls onMove={handlePlayerMove} />
+				<PlayerMovementControls />
 			</div>
 			<PlayerRoster bind:players />
 		</div>
 
 		<!-- Keep the original controls visible only on large screens (desktop) -->
 		<div class="hidden lg:block">
-			<PlayerMovementControls onMove={handlePlayerMove} />
+			<PlayerMovementControls />
 		</div>
 	</div>
 </div>

@@ -1,58 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-
-	export type Direction = 'up' | 'down' | 'left' | 'right';
+	import { playerState, type Direction } from '$lib/player-state.svelte.js';
 
 	interface Props {
 		disabled?: boolean;
-		onMove?: (direction: Direction) => void;
 	}
 
-	let { disabled = false, onMove }: Props = $props();
-
-	let activeDirections = $state<SvelteSet<Direction>>(new SvelteSet());
-
-	const keyDirectionMap: Record<string, Direction> = {
-		ArrowUp: 'up',
-		ArrowDown: 'down',
-		ArrowLeft: 'left',
-		ArrowRight: 'right',
-		w: 'up',
-		s: 'down',
-		a: 'left',
-		d: 'right'
-	};
-
-	const pressedKeys = new Set<string>();
-
-	$inspect(activeDirections);
-
-	function getDirectionFromKey(key: string): Direction | undefined {
-		if (!key) {
-			return undefined;
-		}
-
-		if (keyDirectionMap[key]) {
-			return keyDirectionMap[key];
-		}
-
-		const normalized = key.toLowerCase();
-		return keyDirectionMap[normalized];
-	}
-
-	function triggerMove(direction: Direction) {
-		if (disabled) {
-			return;
-		}
-
-		activeDirections.add(direction);
-		onMove?.(direction);
-	}
-
-	function clearDirection(direction: Direction) {
-		activeDirections.delete(direction);
-	}
+	let { disabled = false }: Props = $props();
 
 	function handlePointerDown(direction: Direction, event: PointerEvent) {
 		if (disabled) {
@@ -60,7 +14,7 @@
 		}
 
 		event.preventDefault();
-		triggerMove(direction);
+		playerState.triggerMove(direction);
 	}
 
 	function handlePointerEnd(direction: Direction, event: PointerEvent) {
@@ -69,7 +23,7 @@
 		}
 
 		event.preventDefault();
-		clearDirection(direction);
+		playerState.clearDirection(direction);
 	}
 
 	onMount(() => {
@@ -77,31 +31,11 @@
 			if (disabled) {
 				return;
 			}
-
-			const direction = getDirectionFromKey(event.key);
-			if (!direction) {
-				return;
-			}
-
-			if (pressedKeys.has(event.key)) {
-				// Avoid repeatedly triggering while the key is held down.
-				event.preventDefault();
-				return;
-			}
-
-			pressedKeys.add(event.key);
-			event.preventDefault();
-			triggerMove(direction);
+			playerState.handleKeyDown(event);
 		}
 
 		function handleKeyUp(event: KeyboardEvent) {
-			const direction = getDirectionFromKey(event.key);
-			pressedKeys.delete(event.key);
-			if (!direction) {
-				return;
-			}
-
-			clearDirection(direction);
+			playerState.handleKeyUp(event);
 		}
 
 		window.addEventListener('keydown', handleKeyDown);
@@ -110,7 +44,7 @@
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
 			window.removeEventListener('keyup', handleKeyUp);
-			pressedKeys.clear();
+			playerState.clearPressedKeys();
 		};
 	});
 </script>
@@ -136,7 +70,7 @@
 			<button
 				type="button"
 				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
-					activeDirections.has('up')
+					playerState.activeDirections.has('up')
 						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
 						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
 				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
@@ -160,7 +94,7 @@
 			<button
 				type="button"
 				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
-					activeDirections.has('left')
+					playerState.activeDirections.has('left')
 						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
 						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
 				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
@@ -192,7 +126,7 @@
 			<button
 				type="button"
 				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
-					activeDirections.has('right')
+					playerState.activeDirections.has('right')
 						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
 						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
 				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
@@ -216,7 +150,7 @@
 			<button
 				type="button"
 				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
-					activeDirections.has('down')
+					playerState.activeDirections.has('down')
 						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
 						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
 				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
