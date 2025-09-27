@@ -91,9 +91,32 @@ func (h *GameHandler) createGameStateMessage(game *schema.Game) map[string]inter
 		game.PlayersList = append(game.PlayersList, player)
 	}
 
+	// Convert map data to array format for JSON
+	game.MapArray = make([][]int, 20)
+	for i := range game.MapArray {
+		game.MapArray[i] = make([]int, 20)
+		for j := range game.MapArray[i] {
+			game.MapArray[i][j] = int(game.Map[i][j])
+		}
+	}
+
+	// Create a safe game state without channels
 	return map[string]interface{}{
 		"type": "game_state",
-		"data": game,
+		"data": map[string]interface{}{
+			"game_id":      game.ID,
+			"created_at":   game.CreatedAt,
+			"started_at":   game.StartedAt,
+			"ended_at":     game.EndedAt,
+			"phase":        game.Phase,
+			"current_round": game.CurrentRound,
+			"rounds":       game.Rounds,
+			"map":          game.MapArray,
+			"players":      game.PlayersList,
+			"player_count": game.PlayerCount,
+			"alive_count":  game.AliveCount,
+			"config":       game.Config,
+		},
 	}
 }
 // +=====================================================+
