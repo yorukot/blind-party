@@ -50,7 +50,9 @@
 
 		<div class="flex flex-col gap-8 lg:flex-row">
 			<GameBoardPanel {mapSize} />
-			<PlayerRoster {players} />
+			<PlayerRoster bind:players />
 		</div>
+
+		<PlayerMovementControls onMove={handlePlayerMove} />
 	</div>
 </div>
