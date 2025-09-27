@@ -14,9 +14,19 @@ class PlayerState {
 
     private pressedKeys = new Set<string>();
     private wsClient: WebSocketGameClient | null = null;
-    private readonly MOVE_STEP = 1; // Move 1 unit per direction change
     private lastSyncedPosition: PlayerPosition = { x: 0, y: 0 };
     private isInitialized = false;
+
+    // Smooth movement physics
+    private velocity = { x: 0, y: 0 };
+    private readonly ACCELERATION = 0.8; // Units per frame squared
+    private readonly MAX_SPEED = 0.15; // Maximum velocity per frame
+    private readonly FRICTION = 0.85; // Friction coefficient (0-1)
+    private animationFrameId: number | null = null;
+    private lastUpdateTime = 0;
+    private lastPositionSent = { x: 0, y: 0 };
+    private readonly POSITION_SEND_INTERVAL = 100; // Send position every 100ms
+    private lastPositionSentTime = 0;
 
     private keyDirectionMap: Record<string, Direction> = {
         ArrowUp: 'up',
@@ -50,58 +60,122 @@ class PlayerState {
     }
 
     /**
-     * Move in a direction and send update to server
+     * Start moving in a direction (smooth acceleration)
      */
     triggerMove(direction: Direction): void {
-        console.log(`[PlayerState] triggerMove called with direction: ${direction}`);
         this.activeDirections.add(direction);
-        this.moveInDirection(direction);
-        this.sendPositionUpdate();
+        this.startMovementLoop();
     }
 
     /**
-     * Stop moving in a direction and send update to server
+     * Stop moving in a direction
      */
     clearDirection(direction: Direction): void {
         this.activeDirections.delete(direction);
-        this.sendPositionUpdate();
+        // Movement loop will handle deceleration when no directions are active
     }
 
     /**
-     * Calculate new position based on direction
+     * Start the smooth movement animation loop
      */
-    private moveInDirection(direction: Direction): void {
-        const newPosition = { ...this.position };
-
-        switch (direction) {
-            case 'up':
-                newPosition.y -= this.MOVE_STEP;
-                break;
-            case 'down':
-                newPosition.y += this.MOVE_STEP;
-                break;
-            case 'left':
-                newPosition.x -= this.MOVE_STEP;
-                break;
-            case 'right':
-                newPosition.x += this.MOVE_STEP;
-                break;
+    private startMovementLoop(): void {
+        if (this.animationFrameId !== null) {
+            return; // Already running
         }
 
-        this.position = newPosition;
+        this.lastUpdateTime = performance.now();
+        this.updateMovement();
     }
 
     /**
-     * Send current position to server via WebSocket
+     * Update player position with smooth physics
      */
-    private sendPositionUpdate(): void {
-        if (this.wsClient && this.wsClient.getState() === 'connected') {
-            console.log(`[PlayerState] Sending position update: (${this.position.x}, ${this.position.y})`);
-            this.wsClient.sendPlayerUpdate(this.position.x, this.position.y);
-            // Track what we sent to avoid conflicts with server updates
-            this.lastSyncedPosition = { x: this.position.x, y: this.position.y };
+    private updateMovement = (): void => {
+        const currentTime = performance.now();
+        const deltaTime = Math.min(currentTime - this.lastUpdateTime, 32) / 16.67; // Cap at ~60fps, normalize to 60fps
+        this.lastUpdateTime = currentTime;
+
+        // Calculate target velocity based on active directions
+        const targetVelocity = { x: 0, y: 0 };
+
+        if (this.activeDirections.has('left')) targetVelocity.x -= 1;
+        if (this.activeDirections.has('right')) targetVelocity.x += 1;
+        if (this.activeDirections.has('up')) targetVelocity.y -= 1;
+        if (this.activeDirections.has('down')) targetVelocity.y += 1;
+
+        // Normalize diagonal movement
+        const magnitude = Math.sqrt(targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y);
+        if (magnitude > 0) {
+            targetVelocity.x = (targetVelocity.x / magnitude) * this.MAX_SPEED;
+            targetVelocity.y = (targetVelocity.y / magnitude) * this.MAX_SPEED;
+        }
+
+        // Apply acceleration towards target velocity
+        const accel = this.ACCELERATION * deltaTime;
+        this.velocity.x += (targetVelocity.x - this.velocity.x) * accel;
+        this.velocity.y += (targetVelocity.y - this.velocity.y) * accel;
+
+        // Apply friction when no input
+        if (magnitude === 0) {
+            this.velocity.x *= Math.pow(this.FRICTION, deltaTime);
+            this.velocity.y *= Math.pow(this.FRICTION, deltaTime);
+        }
+
+        // Update position
+        this.position = {
+            x: this.position.x + this.velocity.x * deltaTime,
+            y: this.position.y + this.velocity.y * deltaTime
+        };
+
+        // Send position update to server if enough time has passed and position changed significantly
+        this.maybeSendPositionUpdate();
+
+        // Continue loop if there's movement or velocity
+        const isMoving = this.activeDirections.size > 0 ||
+                        Math.abs(this.velocity.x) > 0.001 ||
+                        Math.abs(this.velocity.y) > 0.001;
+
+        if (isMoving) {
+            this.animationFrameId = requestAnimationFrame(this.updateMovement);
         } else {
-            console.log(`[PlayerState] Cannot send position update - WebSocket state: ${this.wsClient?.getState() || 'null'}`);
+            this.animationFrameId = null;
+            // Send final position when stopped
+            this.sendPositionUpdateNow();
+        }
+    };
+
+    /**
+     * Send position update to server if enough time has passed
+     */
+    private maybeSendPositionUpdate(): void {
+        const now = performance.now();
+        if (now - this.lastPositionSentTime < this.POSITION_SEND_INTERVAL) {
+            return;
+        }
+
+        // Check if position changed significantly
+        const distance = Math.abs(this.position.x - this.lastPositionSent.x) +
+                        Math.abs(this.position.y - this.lastPositionSent.y);
+
+        if (distance > 0.1) { // Send if moved more than 0.1 units
+            this.sendPositionUpdateNow();
+        }
+    }
+
+    /**
+     * Send current position to server immediately
+     */
+    private sendPositionUpdateNow(): void {
+        if (this.wsClient && this.wsClient.getState() === 'connected') {
+            const roundedX = Math.round(this.position.x * 100) / 100;
+            const roundedY = Math.round(this.position.y * 100) / 100;
+
+            this.wsClient.sendPlayerUpdate(roundedX, roundedY);
+
+            // Track what we sent to avoid conflicts with server updates
+            this.lastSyncedPosition = { x: roundedX, y: roundedY };
+            this.lastPositionSent = { x: roundedX, y: roundedY };
+            this.lastPositionSentTime = performance.now();
         }
     }
 
@@ -133,6 +207,8 @@ class PlayerState {
 
     clearPressedKeys(): void {
         this.pressedKeys.clear();
+        this.activeDirections.clear();
+        this.stopMovementLoop();
     }
 
     /**
@@ -141,7 +217,6 @@ class PlayerState {
      */
     syncWithServer(player: PlayerOnBoard | null): void {
         if (!player) {
-            console.log('[PlayerState] syncWithServer: no player data');
             this.playerId = null;
             this.position = { x: 0, y: 0 };
             this.lastSyncedPosition = { x: 0, y: 0 };
@@ -151,7 +226,6 @@ class PlayerState {
 
         // First time initialization
         if (!this.isInitialized || this.playerId !== player.id) {
-            console.log(`[PlayerState] syncWithServer: initializing position to (${player.position.x}, ${player.position.y})`);
             this.playerId = player.id;
             this.position = { x: player.position.x, y: player.position.y };
             this.lastSyncedPosition = { x: player.position.x, y: player.position.y };
@@ -165,11 +239,18 @@ class PlayerState {
                         Math.abs(player.position.y - this.lastSyncedPosition.y);
 
         if (distance > 2) { // Only sync if position differs by more than 2 units
-            console.log(`[PlayerState] syncWithServer: server correction from (${this.position.x}, ${this.position.y}) to (${player.position.x}, ${player.position.y})`);
             this.position = { x: player.position.x, y: player.position.y };
             this.lastSyncedPosition = { x: player.position.x, y: player.position.y };
-        } else {
-            console.log(`[PlayerState] syncWithServer: ignoring minor server update (${player.position.x}, ${player.position.y}) - distance: ${distance}`);
+        }
+    }
+
+    /**
+     * Stop the movement animation loop
+     */
+    private stopMovementLoop(): void {
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
         }
     }
 
@@ -177,6 +258,7 @@ class PlayerState {
      * Reset player state
      */
     reset(): void {
+        this.stopMovementLoop();
         this.activeDirections.clear();
         this.position = { x: 0, y: 0 };
         this.playerId = null;
@@ -184,6 +266,10 @@ class PlayerState {
         this.wsClient = null;
         this.lastSyncedPosition = { x: 0, y: 0 };
         this.isInitialized = false;
+        this.velocity = { x: 0, y: 0 };
+        this.lastUpdateTime = 0;
+        this.lastPositionSent = { x: 0, y: 0 };
+        this.lastPositionSentTime = 0;
     }
 }
 
