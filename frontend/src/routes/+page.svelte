@@ -51,9 +51,9 @@
             </PixelButton>
 
             <div class="flex items-center justify-center">
-                <div class="h-px bg-slate-600 flex-1"></div>
+                <div class="h-px flex-1 bg-slate-600"></div>
                 <span class="px-4 text-sm text-slate-400">OR</span>
-                <div class="h-px bg-slate-600 flex-1"></div>
+                <div class="h-px flex-1 bg-slate-600"></div>
             </div>
 
             <PixelButton variant="secondary" disabled={isCreating} onclick={createGame}>
@@ -61,7 +61,7 @@
             </PixelButton>
 
             {#if createError}
-                <p class="text-red-400 text-sm text-center">{createError}</p>
+                <p class="text-center text-sm text-red-400">{createError}</p>
             {/if}
         </div>
     </div>

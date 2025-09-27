@@ -67,6 +67,27 @@
         return mapPlayerToToken(selfPlayer, true);
     });
 
+    $effect(() => {
+        if (!import.meta.env.DEV) {
+            return;
+        }
+
+        console.debug('[GameBoard] tokens derived', {
+            otherPlayers: otherPlayerTokens.map((token) => ({
+                id: token.id,
+                x: token.x,
+                y: token.y
+            })),
+            self: selfPlayerToken
+                ? {
+                      id: selfPlayerToken.id,
+                      x: selfPlayerToken.x,
+                      y: selfPlayerToken.y
+                  }
+                : null
+        });
+    });
+
     let playerDiameter = $derived(
         Math.min(safeTileSize, Math.max(16, Math.round(safeTileSize * 0.85)))
     );

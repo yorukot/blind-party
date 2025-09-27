@@ -25,8 +25,20 @@ export const COORDINATE_CONSTANTS = {
  */
 export function gridToApi(gridPosition: PlayerPosition): { pos_x: number; pos_y: number } {
     return {
-        pos_x: Math.round((gridPosition.x + COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET + COORDINATE_CONSTANTS.API_MIN) * 100) / 100,
-        pos_y: Math.round((gridPosition.y + COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET + COORDINATE_CONSTANTS.API_MIN) * 100) / 100
+        pos_x:
+            Math.round(
+                (gridPosition.x +
+                    COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET +
+                    COORDINATE_CONSTANTS.API_MIN) *
+                    100
+            ) / 100,
+        pos_y:
+            Math.round(
+                (gridPosition.y +
+                    COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET +
+                    COORDINATE_CONSTANTS.API_MIN) *
+                    100
+            ) / 100
     };
 }
 
@@ -35,9 +47,14 @@ export function gridToApi(gridPosition: PlayerPosition): { pos_x: number; pos_y:
  * Rounds to the nearest block center and converts to 0-based grid position.
  */
 export function apiToGrid(apiPosition: { pos_x: number; pos_y: number }): PlayerPosition {
+    const normalizedX =
+        apiPosition.pos_x - COORDINATE_CONSTANTS.API_MIN - COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET;
+    const normalizedY =
+        apiPosition.pos_y - COORDINATE_CONSTANTS.API_MIN - COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET;
+
     return {
-        x: Math.round(apiPosition.pos_x - COORDINATE_CONSTANTS.API_MIN - COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET),
-        y: Math.round(apiPosition.pos_y - COORDINATE_CONSTANTS.API_MIN - COORDINATE_CONSTANTS.BLOCK_CENTER_OFFSET)
+        x: Math.round(normalizedX * 100) / 100,
+        y: Math.round(normalizedY * 100) / 100
     };
 }
 
@@ -68,10 +85,19 @@ export function validateGridCoordinates(position: PlayerPosition): boolean {
 /**
  * Clamp API coordinates to valid bounds.
  */
-export function clampApiCoordinates(position: { pos_x: number; pos_y: number }): { pos_x: number; pos_y: number } {
+export function clampApiCoordinates(position: { pos_x: number; pos_y: number }): {
+    pos_x: number;
+    pos_y: number;
+} {
     return {
-        pos_x: Math.max(COORDINATE_CONSTANTS.API_MIN, Math.min(COORDINATE_CONSTANTS.API_MAX, position.pos_x)),
-        pos_y: Math.max(COORDINATE_CONSTANTS.API_MIN, Math.min(COORDINATE_CONSTANTS.API_MAX, position.pos_y))
+        pos_x: Math.max(
+            COORDINATE_CONSTANTS.API_MIN,
+            Math.min(COORDINATE_CONSTANTS.API_MAX, position.pos_x)
+        ),
+        pos_y: Math.max(
+            COORDINATE_CONSTANTS.API_MIN,
+            Math.min(COORDINATE_CONSTANTS.API_MAX, position.pos_y)
+        )
     };
 }
 
@@ -88,7 +114,10 @@ export function clampGridCoordinates(position: PlayerPosition): PlayerPosition {
 /**
  * Round API coordinates to the maximum precision allowed by the API (2 decimal places).
  */
-export function roundApiCoordinates(position: { pos_x: number; pos_y: number }): { pos_x: number; pos_y: number } {
+export function roundApiCoordinates(position: { pos_x: number; pos_y: number }): {
+    pos_x: number;
+    pos_y: number;
+} {
     return {
         pos_x: Math.round(position.pos_x * 100) / 100,
         pos_y: Math.round(position.pos_y * 100) / 100

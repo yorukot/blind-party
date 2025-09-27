@@ -21,8 +21,8 @@ export class HTTPClient {
         const response = await fetch(`${this.baseUrl}/api/game/`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-            },
+                'Content-Type': 'application/json'
+            }
         });
 
         if (!response.ok) {
@@ -55,7 +55,7 @@ export class HTTPClient {
         try {
             const response = await fetch(`${this.baseUrl}/api/health`, {
                 method: 'GET',
-                signal: AbortSignal.timeout(5000), // 5 second timeout
+                signal: AbortSignal.timeout(5000) // 5 second timeout
             });
             return response.ok;
         } catch {
@@ -82,7 +82,7 @@ export class HTTPError extends Error {
  * Default configuration values for the HTTP client.
  */
 export const DEFAULT_HTTP_CONFIG = {
-    apiBaseUrl: 'http://localhost:8080', // Default backend URL
+    apiBaseUrl: 'http://localhost:8080' // Default backend URL
 } as const;
 
 /**
@@ -91,7 +91,7 @@ export const DEFAULT_HTTP_CONFIG = {
  */
 export function createHTTPClient(customConfig?: Partial<APIClientConfig>): HTTPClient {
     const config = {
-        apiBaseUrl: customConfig?.apiBaseUrl ?? DEFAULT_HTTP_CONFIG.apiBaseUrl,
+        apiBaseUrl: customConfig?.apiBaseUrl ?? DEFAULT_HTTP_CONFIG.apiBaseUrl
     };
 
     return new HTTPClient(config);

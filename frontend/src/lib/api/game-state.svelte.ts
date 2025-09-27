@@ -262,7 +262,7 @@ class GameState {
             }
         );
 
-        // Player positions update
+        // Player positions update (bulk)
         this.wsClient.on(
             'player_positions_update',
             (data: {
@@ -276,7 +276,19 @@ class GameState {
                 round_number: number;
                 timestamp: number;
             }) => {
-                console.log('Received position updates from server:', data.players.length, 'players');
+                console.log(
+                    'Received position updates from server:',
+                    data.players.length,
+                    'players'
+                );
+                if (import.meta.env.DEV) {
+                    console.debug('[GameState] player_positions_update packet', {
+                        count: data.players.length,
+                        round: data.round_number,
+                        timestamp: data.timestamp
+                    });
+                }
+
                 data.players.forEach(
                     (playerUpdate: {
                         user_id: string;
@@ -285,16 +297,48 @@ class GameState {
                         pos_y: number;
                         is_spectator: boolean;
                     }) => {
-                        if (this.localPlayerId === playerUpdate.user_id) {
-                            console.log('Server position update for local player:', { pos_x: playerUpdate.pos_x, pos_y: playerUpdate.pos_y });
+                        if (import.meta.env.DEV) {
+                            const isLocal = this.localPlayerId === playerUpdate.user_id;
+                            console.debug('[GameState] applying position update', {
+                                userId: playerUpdate.user_id,
+                                name: playerUpdate.name,
+                                pos_x: playerUpdate.pos_x,
+                                pos_y: playerUpdate.pos_y,
+                                isLocal
+                            });
                         }
-                        this.updatePlayerPosition_Internal(
-                            playerUpdate.user_id,
-                            playerUpdate.pos_x,
-                            playerUpdate.pos_y
-                        );
+                        this.updatePlayerPosition_Internal({
+                            user_id: playerUpdate.user_id,
+                            name: playerUpdate.name,
+                            pos_x: playerUpdate.pos_x,
+                            pos_y: playerUpdate.pos_y,
+                            is_spectator: playerUpdate.is_spectator
+                        });
                     }
                 );
+            }
+        );
+
+        // Player position update (single)
+        this.wsClient.on(
+            'player_position_update',
+            (data: { user_id: string; username?: string; position: { x: number; y: number } }) => {
+                if (import.meta.env.DEV) {
+                    const isLocal = this.localPlayerId === data.user_id;
+                    console.debug('[GameState] applying single position update', {
+                        userId: data.user_id,
+                        username: data.username,
+                        position: data.position,
+                        isLocal
+                    });
+                }
+
+                this.updatePlayerPosition_Internal({
+                    user_id: data.user_id,
+                    name: data.username,
+                    pos_x: data.position.x,
+                    pos_y: data.position.y
+                });
             }
         );
 
@@ -397,23 +441,83 @@ class GameState {
     /**
      * Update a player's position internally.
      */
-    private updatePlayerPosition_Internal(playerId: string, posX: number, posY: number): void {
-        const gridPosition = apiToGrid({ pos_x: posX, pos_y: posY });
-        const playerIndex = this.players.findIndex((p) => p.id === playerId);
+    private updatePlayerPosition_Internal(update: {
+        user_id: string;
+        name?: string;
+        pos_x: number;
+        pos_y: number;
+        is_spectator?: boolean;
+    }): void {
+        const gridPosition = apiToGrid({ pos_x: update.pos_x, pos_y: update.pos_y });
+        const playerIndex = this.players.findIndex((p) => p.id === update.user_id);
+
+        const nextPlayers = [...this.players];
+        let summary: PlayerSummary | null = null;
 
         if (playerIndex >= 0) {
-            this.players[playerIndex] = {
-                ...this.players[playerIndex],
+            const current = nextPlayers[playerIndex];
+            const currentStatus = current.status;
+            const isSpectating = update.is_spectator ?? current.status === 'spectating';
+            const resolvedStatus =
+                currentStatus === 'eliminated'
+                    ? currentStatus
+                    : isSpectating
+                      ? 'spectating'
+                      : 'ingame';
+
+            summary = {
+                ...current,
+                status: resolvedStatus,
+                name: update.name ?? current.name,
                 position: gridPosition
             };
+            nextPlayers[playerIndex] = summary;
+        } else {
+            const name = update.name ?? update.user_id;
+            const accent = this.generatePlayerAccent(update.user_id);
+            const isSpectating = update.is_spectator ?? false;
+
+            summary = {
+                id: update.user_id,
+                name,
+                status: isSpectating ? 'spectating' : 'ingame',
+                accent,
+                position: gridPosition
+            };
+            nextPlayers.push(summary);
         }
 
-        // Update local player if this is us
-        if (this.localPlayerId === playerId && this.localPlayer) {
+        this.players = nextPlayers;
+
+        if (import.meta.env.DEV) {
+            console.debug('[GameState] players snapshot after update', {
+                userId: update.user_id,
+                gridPosition,
+                playerCount: nextPlayers.length
+            });
+        }
+
+        if (this.localPlayerId === update.user_id) {
+            const baseStatus = summary.status;
+            const accent = this.localPlayer?.accent ?? summary.accent;
+            const persistedStatus =
+                this.localPlayer?.status === 'eliminated' ? 'eliminated' : baseStatus;
+            const syncedPosition = summary.position ?? gridPosition;
+
             this.localPlayer = {
-                ...this.localPlayer,
-                position: gridPosition
+                id: summary.id,
+                name: summary.name,
+                status: persistedStatus,
+                accent,
+                position: syncedPosition
             };
+
+            if (import.meta.env.DEV) {
+                console.debug('[GameState] local player sync', {
+                    userId: summary.id,
+                    position: syncedPosition
+                });
+            }
         }
     }
 

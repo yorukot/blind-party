@@ -31,7 +31,10 @@ export class WebSocketClient {
     constructor(
         gameId: string,
         username: string,
-        config: Pick<APIClientConfig, 'wsBaseUrl' | 'reconnectAttempts' | 'reconnectDelay' | 'pingInterval'>
+        config: Pick<
+            APIClientConfig,
+            'wsBaseUrl' | 'reconnectAttempts' | 'reconnectDelay' | 'pingInterval'
+        >
     ) {
         this.gameId = gameId;
         this.username = username;
@@ -39,7 +42,9 @@ export class WebSocketClient {
         this.reconnectDelay = config.reconnectDelay ?? 1000;
         this.pingInterval = config.pingInterval ?? 30000; // 30 seconds
 
-        const baseUrl = config.wsBaseUrl.endsWith('/') ? config.wsBaseUrl.slice(0, -1) : config.wsBaseUrl;
+        const baseUrl = config.wsBaseUrl.endsWith('/')
+            ? config.wsBaseUrl.slice(0, -1)
+            : config.wsBaseUrl;
         this.url = `${baseUrl}/api/game/${gameId}/ws?username=${encodeURIComponent(username)}`;
     }
 
@@ -207,7 +212,6 @@ export class WebSocketClient {
                     this.setConnectionState('error');
                     reject(new WebSocketError('Connection failed'));
                 };
-
             } catch (error) {
                 reject(error);
             }
@@ -220,7 +224,7 @@ export class WebSocketClient {
     private handleMessage(message: ServerMessage): void {
         const handlers = this.messageHandlers.get(message.type);
         if (handlers) {
-            handlers.forEach(handler => {
+            handlers.forEach((handler) => {
                 try {
                     handler((message as any).data);
                 } catch (error) {
@@ -235,7 +239,7 @@ export class WebSocketClient {
      */
     private setConnectionState(state: WebSocketConnectionState): void {
         this.connectionState = state;
-        this.connectionHandlers.forEach(handler => {
+        this.connectionHandlers.forEach((handler) => {
             try {
                 handler(state);
             } catch (error) {
@@ -256,7 +260,9 @@ export class WebSocketClient {
         this.currentReconnectAttempt++;
         const delay = this.reconnectDelay * Math.pow(2, this.currentReconnectAttempt - 1); // Exponential backoff
 
-        console.log(`Scheduling reconnect attempt ${this.currentReconnectAttempt}/${this.reconnectAttempts} in ${delay}ms`);
+        console.log(
+            `Scheduling reconnect attempt ${this.currentReconnectAttempt}/${this.reconnectAttempts} in ${delay}ms`
+        );
 
         this.reconnectTimeoutId = window.setTimeout(() => {
             this.connect();
@@ -317,7 +323,7 @@ export const DEFAULT_WEBSOCKET_CONFIG = {
     wsBaseUrl: 'ws://localhost:8080', // Default backend WebSocket URL
     reconnectAttempts: 5,
     reconnectDelay: 1000, // 1 second
-    pingInterval: 30000, // 30 seconds
+    pingInterval: 30000 // 30 seconds
 } as const;
 
 /**
@@ -330,9 +336,10 @@ export function createWebSocketClient(
 ): WebSocketClient {
     const config = {
         wsBaseUrl: customConfig?.wsBaseUrl ?? DEFAULT_WEBSOCKET_CONFIG.wsBaseUrl,
-        reconnectAttempts: customConfig?.reconnectAttempts ?? DEFAULT_WEBSOCKET_CONFIG.reconnectAttempts,
+        reconnectAttempts:
+            customConfig?.reconnectAttempts ?? DEFAULT_WEBSOCKET_CONFIG.reconnectAttempts,
         reconnectDelay: customConfig?.reconnectDelay ?? DEFAULT_WEBSOCKET_CONFIG.reconnectDelay,
-        pingInterval: customConfig?.pingInterval ?? DEFAULT_WEBSOCKET_CONFIG.pingInterval,
+        pingInterval: customConfig?.pingInterval ?? DEFAULT_WEBSOCKET_CONFIG.pingInterval
     };
 
     return new WebSocketClient(gameId, username, config);

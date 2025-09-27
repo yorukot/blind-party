@@ -38,7 +38,6 @@
     let localPlayer = $derived(gameState.localPlayer);
     let connectionState = $derived(gameState.connectionState);
 
-
     // Join game function
     async function joinGame() {
         if (!username.trim()) return;
@@ -95,6 +94,33 @@
                     }) as PlayerOnBoard
             )
     );
+
+    $effect(() => {
+        if (!import.meta.env.DEV) {
+            return;
+        }
+
+        const remoteSummaries = otherPlayersOnBoard.map((player) => ({
+            id: player.id,
+            name: player.name,
+            position: player.position,
+            status: player.status
+        }));
+
+        console.debug('[GamePage] remote players derived', remoteSummaries);
+    });
+
+    $effect(() => {
+        if (!import.meta.env.DEV || !selfPlayerOnBoard) {
+            return;
+        }
+
+        console.debug('[GamePage] self player derived', {
+            id: selfPlayerOnBoard.id,
+            position: selfPlayerOnBoard.position,
+            status: selfPlayerOnBoard.status
+        });
+    });
 
     const MAX_PLAYER_SPEED = 4; // tiles per second
     const ACCELERATION_RATE = 12; // tiles per second squared
