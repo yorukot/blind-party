@@ -1,5 +1,5 @@
 import { PUBLIC_WS_BASE_URL } from '$env/static/public';
-import type { GameStateResponse, GameEvent } from '../types/game.js';
+import type { GameStateResponse } from '../types/game.js';
 
 /**
  * WebSocket connection states
@@ -19,7 +19,7 @@ export type WebSocketMessage =
  * WebSocket message types that can be sent to the server
  */
 export type OutgoingWebSocketMessage =
-	| { type: 'player_action'; data: { action: string; [key: string]: unknown } }
+	| { event: 'player_update'; player: { position_x: number; position_y: number } }
 	| { type: 'ping' }
 	| { type: 'pong' };
 
@@ -121,12 +121,12 @@ export class WebSocketGameClient {
 	}
 
 	/**
-	 * Send a player action
+	 * Send player position update to the server
 	 */
-	sendPlayerAction(action: string, data: Record<string, unknown> = {}): void {
+	sendPlayerUpdate(position_x: number, position_y: number): void {
 		this.send({
-			type: 'player_action',
-			data: { action, ...data }
+			event: 'player_update',
+			player: { position_x, position_y }
 		});
 	}
 

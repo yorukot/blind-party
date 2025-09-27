@@ -1,30 +1,22 @@
 import type { PlayerOnBoard, PlayerPosition } from '$lib/types/player';
+import type { WebSocketGameClient } from '$lib/api/websocket';
 import { SvelteSet } from 'svelte/reactivity';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
 /**
- * Callback function type for position updates.
- */
-export type PositionUpdateCallback = (x: number, y: number) => void;
-
-/**
- * Class storing our own player's state.
+ * Simplified player state management for WebSocket-based movement
  */
 class PlayerState {
     activeDirections = $state<SvelteSet<Direction>>(new SvelteSet());
-    localPlayer = $state<PlayerOnBoard | null>(null);
-    localPlayerId = $state<string | null>(null);
-    localVelocity = $state<{ x: number; y: number }>({ x: 0, y: 0 });
-    localPosition = $state<PlayerPosition>({ x: 0, y: 0 });
+    position = $state<PlayerPosition>({ x: 0, y: 0 });
+    playerId = $state<string | null>(null);
+
     private pressedKeys = new Set<string>();
-    private positionUpdateCallback: PositionUpdateCallback | null = null;
-    private lastSentPosition: PlayerPosition | null = null;
-    private lastSentTime: number = 0;
-    private readonly POSITION_UPDATE_RATE_MS = 50; // 20Hz = 1000ms / 20 = 50ms
-    private readonly POSITION_EPSILON = 0.005;
-    private currentLocalPlayerSnapshot: PlayerOnBoard | null = null;
-    private currentLocalPosition: PlayerPosition = { x: 0, y: 0 };
+    private wsClient: WebSocketGameClient | null = null;
+    private readonly MOVE_STEP = 1; // Move 1 unit per direction change
+    private lastSyncedPosition: PlayerPosition = { x: 0, y: 0 };
+    private isInitialized = false;
 
     private keyDirectionMap: Record<string, Direction> = {
         ArrowUp: 'up',
@@ -50,15 +42,70 @@ class PlayerState {
         return this.keyDirectionMap[normalized];
     }
 
-    triggerMove(direction: Direction) {
+    /**
+     * Set the WebSocket client for sending position updates
+     */
+    setWebSocketClient(client: WebSocketGameClient | null): void {
+        this.wsClient = client;
+    }
+
+    /**
+     * Move in a direction and send update to server
+     */
+    triggerMove(direction: Direction): void {
+        console.log(`[PlayerState] triggerMove called with direction: ${direction}`);
         this.activeDirections.add(direction);
+        this.moveInDirection(direction);
+        this.sendPositionUpdate();
     }
 
-    clearDirection(direction: Direction) {
+    /**
+     * Stop moving in a direction and send update to server
+     */
+    clearDirection(direction: Direction): void {
         this.activeDirections.delete(direction);
+        this.sendPositionUpdate();
     }
 
-    handleKeyDown(event: KeyboardEvent) {
+    /**
+     * Calculate new position based on direction
+     */
+    private moveInDirection(direction: Direction): void {
+        const newPosition = { ...this.position };
+
+        switch (direction) {
+            case 'up':
+                newPosition.y -= this.MOVE_STEP;
+                break;
+            case 'down':
+                newPosition.y += this.MOVE_STEP;
+                break;
+            case 'left':
+                newPosition.x -= this.MOVE_STEP;
+                break;
+            case 'right':
+                newPosition.x += this.MOVE_STEP;
+                break;
+        }
+
+        this.position = newPosition;
+    }
+
+    /**
+     * Send current position to server via WebSocket
+     */
+    private sendPositionUpdate(): void {
+        if (this.wsClient && this.wsClient.getState() === 'connected') {
+            console.log(`[PlayerState] Sending position update: (${this.position.x}, ${this.position.y})`);
+            this.wsClient.sendPlayerUpdate(this.position.x, this.position.y);
+            // Track what we sent to avoid conflicts with server updates
+            this.lastSyncedPosition = { x: this.position.x, y: this.position.y };
+        } else {
+            console.log(`[PlayerState] Cannot send position update - WebSocket state: ${this.wsClient?.getState() || 'null'}`);
+        }
+    }
+
+    handleKeyDown(event: KeyboardEvent): void {
         const direction = this.getDirectionFromKey(event.key);
         if (!direction) {
             return;
@@ -74,7 +121,7 @@ class PlayerState {
         this.triggerMove(direction);
     }
 
-    handleKeyUp(event: KeyboardEvent) {
+    handleKeyUp(event: KeyboardEvent): void {
         const direction = this.getDirectionFromKey(event.key);
         this.pressedKeys.delete(event.key);
         if (!direction) {
@@ -84,214 +131,59 @@ class PlayerState {
         this.clearDirection(direction);
     }
 
-    clearPressedKeys() {
+    clearPressedKeys(): void {
         this.pressedKeys.clear();
     }
 
-    setLocalPlayer(player: PlayerOnBoard | null) {
-        const snapshot = player ? this.clonePlayerSnapshot(player) : null;
-        this.localPlayer = snapshot;
-        this.currentLocalPlayerSnapshot = snapshot;
-        this.localPlayerId = player?.id ?? null;
-        this.localVelocity = { x: 0, y: 0 };
-
-        if (snapshot) {
-            const positionSnapshot = this.clonePosition(snapshot.position);
-            this.localPosition = positionSnapshot;
-            this.currentLocalPosition = this.clonePosition(positionSnapshot);
-            this.lastSentPosition = this.clonePosition(positionSnapshot);
-            this.lastSentTime = 0;
-        } else {
-            this.localPosition = { x: 0, y: 0 };
-            this.currentLocalPosition = { x: 0, y: 0 };
-            this.lastSentPosition = null;
-            this.lastSentTime = 0;
-        }
-    }
-
-    setLocalPlayerId(id: string | null) {
-        this.localPlayerId = id;
-        if (!id || this.currentLocalPlayerSnapshot?.id !== id) {
-            this.localPlayer = null;
-            this.currentLocalPlayerSnapshot = null;
-            this.localVelocity = { x: 0, y: 0 };
-            this.localPosition = { x: 0, y: 0 };
-            this.currentLocalPosition = { x: 0, y: 0 };
-            this.lastSentPosition = null;
-            this.lastSentTime = 0;
-        }
-    }
-
-    private roundToGridCoordinate(value: number) {
-        return Math.round(value * 100) / 100;
-    }
-
-    updateLocalPlayerVelocity(velocity: { x: number; y: number }) {
-        const roundedX = this.roundToGridCoordinate(velocity.x);
-        const roundedY = this.roundToGridCoordinate(velocity.y);
-        this.localVelocity = { x: roundedX, y: roundedY };
-    }
-
     /**
-     * Set a callback function to be called when the player position changes.
+     * Update position from server game state
+     * Only sync if this is the first time or if the server position differs significantly from what we sent
      */
-    setPositionUpdateCallback(callback: PositionUpdateCallback | null): void {
-        this.positionUpdateCallback = callback;
-    }
-
-    /**
-     * Update the local player position.
-     * This method also triggers the position update callback if set.
-     */
-    updateLocalPlayerPosition(position: PlayerPosition, skipUpdate = false): void {
-        if (!this.currentLocalPlayerSnapshot) {
-            return;
-        }
-
-        const nextPosition = this.roundToPosition(position);
-        const currentPosition = this.currentLocalPosition;
-
-        if (this.arePositionsClose(currentPosition, nextPosition)) {
-            return;
-        }
-
-        this.localPosition = nextPosition;
-        this.currentLocalPosition = this.clonePosition(nextPosition);
-
-        // Send position update if callback is set and we're not skipping
-        if (
-            !skipUpdate &&
-            this.positionUpdateCallback &&
-            this.shouldSendPositionUpdate(nextPosition)
-        ) {
-            this.positionUpdateCallback(nextPosition.x, nextPosition.y);
-            this.lastSentPosition = this.clonePosition(nextPosition);
-            this.lastSentTime = Date.now();
-        }
-    }
-
-    /**
-     * Determine if we should send a position update.
-     * This reduces unnecessary callbacks by only sending when position changes significantly
-     * and respects the 20Hz rate limit.
-     */
-    private shouldSendPositionUpdate(newPosition: PlayerPosition): boolean {
-        const now = Date.now();
-
-        // Rate limiting: don't send more than 20Hz (every 50ms)
-        if (now - this.lastSentTime < this.POSITION_UPDATE_RATE_MS) {
-            return false;
-        }
-
-        if (!this.lastSentPosition) {
-            return true;
-        }
-
-        return !this.arePositionsClose(this.lastSentPosition, newPosition, 0.01);
-    }
-
-    /**
-     * Sync the local player with data from the game state.
-     * This is called when we receive updates from the server.
-     * Only syncs position if the server position is significantly different from client position.
-     */
-    syncWithGameState(player: PlayerOnBoard | null): void {
+    syncWithServer(player: PlayerOnBoard | null): void {
         if (!player) {
-            this.localPlayer = null;
-            this.currentLocalPlayerSnapshot = null;
-            this.localPlayerId = null;
-            this.localVelocity = { x: 0, y: 0 };
-            this.localPosition = { x: 0, y: 0 };
-            this.currentLocalPosition = { x: 0, y: 0 };
-            this.lastSentPosition = null;
+            console.log('[PlayerState] syncWithServer: no player data');
+            this.playerId = null;
+            this.position = { x: 0, y: 0 };
+            this.lastSyncedPosition = { x: 0, y: 0 };
+            this.isInitialized = false;
             return;
         }
 
-        const currentSnapshot = this.currentLocalPlayerSnapshot;
-        const snapshot = this.clonePlayerSnapshot(player);
-
-        if (!currentSnapshot || currentSnapshot.id !== player.id) {
-            const initialPosition = this.clonePosition(snapshot.position);
-            this.localPlayer = snapshot;
-            this.currentLocalPlayerSnapshot = snapshot;
-            this.localPlayerId = player.id;
-            this.localPosition = initialPosition;
-            this.currentLocalPosition = this.clonePosition(initialPosition);
-            this.localVelocity = { x: 0, y: 0 };
-            this.lastSentPosition = this.clonePosition(initialPosition);
-            this.lastSentTime = 0;
+        // First time initialization
+        if (!this.isInitialized || this.playerId !== player.id) {
+            console.log(`[PlayerState] syncWithServer: initializing position to (${player.position.x}, ${player.position.y})`);
+            this.playerId = player.id;
+            this.position = { x: player.position.x, y: player.position.y };
+            this.lastSyncedPosition = { x: player.position.x, y: player.position.y };
+            this.isInitialized = true;
             return;
         }
 
-        this.localPlayer = snapshot;
-        this.currentLocalPlayerSnapshot = snapshot;
-        this.localPlayerId = player.id;
+        // Check if server position differs significantly from what we last synced
+        // This handles cases where the server may have corrected our position
+        const distance = Math.abs(player.position.x - this.lastSyncedPosition.x) +
+                        Math.abs(player.position.y - this.lastSyncedPosition.y);
 
-        const currentPosition = this.currentLocalPosition;
-        const SYNC_THRESHOLD = 0.5; // Only sync if positions differ by more than 0.5 tiles
-        const distance = this.calculateDistance(currentPosition, snapshot.position);
-
-        if (distance > SYNC_THRESHOLD) {
-            const resynced = this.clonePosition(snapshot.position);
-            this.localPosition = resynced;
-            this.currentLocalPosition = this.clonePosition(resynced);
-            this.localVelocity = { x: 0, y: 0 };
-            this.lastSentPosition = this.clonePosition(resynced);
-            this.lastSentTime = 0;
+        if (distance > 2) { // Only sync if position differs by more than 2 units
+            console.log(`[PlayerState] syncWithServer: server correction from (${this.position.x}, ${this.position.y}) to (${player.position.x}, ${player.position.y})`);
+            this.position = { x: player.position.x, y: player.position.y };
+            this.lastSyncedPosition = { x: player.position.x, y: player.position.y };
+        } else {
+            console.log(`[PlayerState] syncWithServer: ignoring minor server update (${player.position.x}, ${player.position.y}) - distance: ${distance}`);
         }
     }
 
     /**
-     * Reset the player state to initial values.
+     * Reset player state
      */
     reset(): void {
         this.activeDirections.clear();
-        this.localPlayer = null;
-        this.currentLocalPlayerSnapshot = null;
-        this.localPlayerId = null;
-        this.localVelocity = { x: 0, y: 0 };
-        this.localPosition = { x: 0, y: 0 };
-        this.currentLocalPosition = { x: 0, y: 0 };
+        this.position = { x: 0, y: 0 };
+        this.playerId = null;
         this.pressedKeys.clear();
-        this.lastSentPosition = null;
-        this.lastSentTime = 0;
-        this.positionUpdateCallback = null;
-    }
-
-    private clonePlayerSnapshot(player: PlayerOnBoard): PlayerOnBoard {
-        return {
-            ...player,
-            position: this.clonePosition(player.position)
-        };
-    }
-
-    private roundToPosition(position: PlayerPosition): PlayerPosition {
-        return {
-            x: this.roundToGridCoordinate(position.x),
-            y: this.roundToGridCoordinate(position.y)
-        };
-    }
-
-    private arePositionsClose(
-        a: PlayerPosition | null,
-        b: PlayerPosition,
-        epsilon: number = this.POSITION_EPSILON
-    ): boolean {
-        if (!a) {
-            return false;
-        }
-
-        return Math.abs(a.x - b.x) < epsilon && Math.abs(a.y - b.y) < epsilon;
-    }
-
-    private clonePosition(position: PlayerPosition): PlayerPosition {
-        return { x: position.x, y: position.y };
-    }
-
-    private calculateDistance(a: PlayerPosition, b: PlayerPosition): number {
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        return Math.sqrt(dx * dx + dy * dy);
+        this.wsClient = null;
+        this.lastSyncedPosition = { x: 0, y: 0 };
+        this.isInitialized = false;
     }
 }
 

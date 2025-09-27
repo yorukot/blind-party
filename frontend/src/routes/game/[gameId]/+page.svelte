@@ -47,11 +47,20 @@
 
     // Player-specific derived values
     let selfPlayerSummary = $derived(players.find((p) => p.name === username) || null);
-    let selfPlayerOnBoard = $derived(
-        selfPlayerSummary && selfPlayerSummary.position
-            ? (selfPlayerSummary as PlayerOnBoard)
-            : null
-    );
+
+    // Use local player state position for immediate movement feedback
+    let selfPlayerOnBoard = $derived.by(() => {
+        if (!selfPlayerSummary || !selfPlayerSummary.position) {
+            return null;
+        }
+
+        // Create player object with local position from playerState
+        return {
+            ...selfPlayerSummary,
+            position: playerState.position
+        } as PlayerOnBoard;
+    });
+
     let otherPlayersOnBoard = $derived(
         players.filter((p) => p.name !== username && p.position) as PlayerOnBoard[]
     );
@@ -75,6 +84,19 @@
 
         client.on('onGameUpdate', (updatedGameState) => {
             gameState = updatedGameState;
+
+            // Sync player position with server
+            const selfPlayerSummary = updatedGameState.players
+                .map(gamePlayerToPlayerSummary)
+                .find(p => p.name === username);
+
+            const selfPlayerOnBoard = selfPlayerSummary && selfPlayerSummary.position
+                ? (selfPlayerSummary as PlayerOnBoard)
+                : null;
+
+            if (selfPlayerOnBoard) {
+                playerState.syncWithServer(selfPlayerOnBoard);
+            }
         });
 
         client.on('onError', (error) => {
@@ -99,8 +121,13 @@
             // Set up event listeners
             setupEventHandlers(wsClient);
 
+            // Connect WebSocket client to player state
+            playerState.setWebSocketClient(wsClient);
+
             // Connect to the game
             await wsClient.connect(params.gameId, username.trim());
+
+            console.log('[Game] WebSocket connected, initializing player state');
         } catch (error) {
             connectionError = error instanceof Error ? error.message : 'Failed to connect to game';
             isConnecting = false;
@@ -114,6 +141,7 @@
         if (wsClient) {
             wsClient.disconnect();
         }
+        playerState.reset();
     });
 </script>
 
