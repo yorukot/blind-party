@@ -1,14 +1,15 @@
 <script lang="ts">
+    import { PUBLIC_API_BASE_URL, PUBLIC_WS_BASE_URL } from '$env/static/public';
     import { gameState } from '$lib/api/game-state.svelte.js';
     import CountdownBar from '$lib/components/game/countdown-bar.svelte';
     import CountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster from '$lib/components/game/player-roster.svelte';
+    import JoinForm from '$lib/components/ui/join-form.svelte';
     import { playerState } from '$lib/player-state.svelte.js';
     import type { PlayerOnBoard } from '$lib/types/player';
     import { onDestroy, onMount } from 'svelte';
-    import { PUBLIC_API_BASE_URL, PUBLIC_WS_BASE_URL } from '$env/static/public';
 
     interface Props {
         params: {
@@ -30,9 +31,10 @@
         wsBaseUrl: PUBLIC_WS_BASE_URL || 'ws://localhost:8080'
     });
 
+    $inspect(username);
+
     // Get reactive data from game state
     let mapSize = $derived(gameState.mapSize);
-    let gameMap = $derived(gameState.gameMap);
     let players = $derived(gameState.players);
     let localPlayer = $derived(gameState.localPlayer);
     let connectionState = $derived(gameState.connectionState);
@@ -209,49 +211,14 @@
 
 <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
     {#if !isJoined}
-        <!-- Username input form -->
-        <div class="flex min-h-screen flex-col items-center justify-center p-8">
-            <div class="flex w-full max-w-md flex-col items-center space-y-8">
-                <header class="text-center">
-                    <p class="mb-2 text-sm tracking-[0.35em] text-blue-200/80 uppercase">
-                        Blind Party
-                    </p>
-                    <h1
-                        class="font-minecraft text-3xl tracking-wider text-yellow-300 uppercase drop-shadow-[4px_4px_0px_rgba(0,0,0,0.65)]"
-                    >
-                        Game: <span class="text-white">{params.gameId}</span>
-                    </h1>
-                </header>
-
-                <div class="w-full space-y-4">
-                    <input
-                        bind:value={username}
-                        placeholder="Enter your username"
-                        class="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        maxlength="20"
-                        disabled={isConnecting}
-                    />
-
-                    {#if connectionError}
-                        <p class="text-sm text-red-400">{connectionError}</p>
-                    {/if}
-
-                    <button
-                        onclick={joinGame}
-                        disabled={!username.trim() || isConnecting}
-                        class="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-600"
-                    >
-                        {isConnecting ? 'Joining...' : 'Join Game'}
-                    </button>
-
-                    <div class="text-center">
-                        <p class="text-sm text-slate-400">
-                            Connection: <span class="text-blue-300">{connectionState}</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <JoinForm
+            {params}
+            bind:username
+            {isConnecting}
+            {connectionError}
+            {connectionState}
+            onJoin={joinGame}
+        />
     {:else}
         <!-- Game interface -->
         <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6 sm:py-12">
@@ -282,7 +249,6 @@
             <div class="flex flex-col gap-8 lg:flex-row">
                 <GameBoardPanel
                     {mapSize}
-                    {gameMap}
                     players={otherPlayersOnBoard}
                     selfPlayer={selfPlayerOnBoard}
                 />
