@@ -1,4 +1,5 @@
 <script lang="ts">
+    import logo from '$lib/assets/blind-party.png';
     import PixelButton from '$lib/components/ui/pixel-button.svelte';
     import PixelInput from '$lib/components/ui/pixel-input.svelte';
 
@@ -26,7 +27,7 @@
 <div class="flex min-h-screen flex-col items-center justify-center p-8">
     <div class="flex w-full max-w-md flex-col items-center space-y-8">
         <header class="text-center">
-            <p class="mb-2 text-sm tracking-[0.35em] text-blue-200/80 uppercase">Blind Party</p>
+            <img src={logo} alt="Blind Party Logo" class="pixelated h-auto w-[24rem]" />
             <h1
                 class="font-minecraft text-3xl tracking-wider text-yellow-300 uppercase drop-shadow-[4px_4px_0px_rgba(0,0,0,0.65)]"
             >
@@ -35,11 +36,7 @@
         </header>
 
         <div class="w-full space-y-4">
-            <PixelInput
-                bind:value={username}
-                placeholder="Enter your username"
-                maxlength={20}
-            />
+            <PixelInput bind:value={username} placeholder="Enter your username" maxlength={20} />
 
             {#if connectionError}
                 <p class="text-sm text-red-400">{connectionError}</p>
@@ -55,5 +52,13 @@
                 </p>
             </div>
         </div>
+
+        <style>
+            .pixelated {
+                image-rendering: pixelated;
+                image-rendering: -moz-crisp-edges;
+                image-rendering: crisp-edges;
+            }
+        </style>
     </div>
 </div>

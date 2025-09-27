@@ -31,8 +31,6 @@
         wsBaseUrl: PUBLIC_WS_BASE_URL || 'ws://localhost:8080'
     });
 
-    $inspect(username);
-
     // Get reactive data from game state
     let mapSize = $derived(gameState.mapSize);
     let players = $derived(gameState.players);
