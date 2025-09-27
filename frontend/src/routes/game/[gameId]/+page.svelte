@@ -2,6 +2,7 @@
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster, { type PlayerSummary } from '$lib/components/game/player-roster.svelte';
+    import RoundCountdownBar from '$lib/components/game/round-countdown-bar.svelte';
 
     interface Props {
         params: {
@@ -39,6 +40,8 @@
                 Preview the arena layout and lobby roster while we hook up the live game feed.
             </p>
         </header>
+
+        <RoundCountdownBar duration={90} fillColor="#facc15" />
 
         <div class="flex flex-col gap-8 lg:flex-row">
             <GameBoardPanel {mapSize} />
