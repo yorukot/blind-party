@@ -5,6 +5,7 @@
 
     interface Props {
         mapSize: number;
+        gameMap?: number[][];
         targetSize?: number;
         minTileSize?: number;
         maxTileSize?: number;
@@ -14,6 +15,7 @@
 
     let {
         mapSize,
+        gameMap = [],
         targetSize = 560,
         minTileSize = 10,
         maxTileSize = 48,
@@ -61,5 +63,5 @@
     bind:this={container}
     class="flex w-full items-center justify-center rounded-3xl border-4 border-black bg-slate-950/90 p-4 shadow-[0_16px_0px_rgba(0,0,0,0.55)] backdrop-blur"
 >
-    <GameBoard mapSize={safeMapSize} tileSize={computedTileSize} {players} {selfPlayer} />
+    <GameBoard mapSize={safeMapSize} {gameMap} tileSize={computedTileSize} {players} {selfPlayer} />
 </section>

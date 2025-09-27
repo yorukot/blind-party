@@ -4,16 +4,17 @@
 
     /**
      * Canvas-based renderer for the Blind Party map.
-     * Generates a random n x n block layout using the provided block textures.
+     * Displays the official map data received from the API server.
      */
     interface Props {
         mapSize: number;
+        gameMap?: number[][];
         tileSize?: number;
         players?: PlayerOnBoard[];
         selfPlayer?: PlayerOnBoard | null;
     }
 
-    let { mapSize, tileSize = 32, players = [], selfPlayer = null }: Props = $props();
+    let { mapSize, gameMap = [], tileSize = 32, players = [], selfPlayer = null }: Props = $props();
 
     const textureModules = import.meta.glob('$lib/assets/blocks/*.png', {
         as: 'url',
@@ -82,15 +83,14 @@
         return '';
     };
 
-    function generateMap(size: number) {
-        const textureCount = textureUrls.length || 1;
-        return Array.from({ length: size }, () =>
-            Array.from({ length: size }, () => Math.floor(Math.random() * textureCount))
-        );
-    }
-
     $effect(() => {
-        mapGrid = generateMap(normalizedMapSize);
+        // Only use map data from the API - client never generates maps
+        if (gameMap && gameMap.length > 0) {
+            mapGrid = gameMap;
+        } else {
+            // Clear map if no API data is available
+            mapGrid = [];
+        }
     });
 
     function createImage(url: string) {
