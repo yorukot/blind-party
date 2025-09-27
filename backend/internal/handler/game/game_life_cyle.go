@@ -190,9 +190,11 @@ func (h *GameHandler) processGameState(game *schema.Game) {
 		h.handlePreGamePhase(game)
 	case schema.InGame:
 		h.handleInGamePhase(game)
+		log.Print("Processed InGame phase")
 	case schema.Settlement:
 		// h.handleSettlementPhase(game)
 	}
 	game.LastTick = time.Now()
+	log.Printf("Game %s state processed (Phase: %s)", game.ID, game.Phase)
 	game.Broadcast <- h.createGameStateMessage(game)
 }

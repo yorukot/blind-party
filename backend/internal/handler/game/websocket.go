@@ -138,17 +138,8 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, username string, mes
 	newPosition := player.Position
 
 	// Extract new position coordinates
-	if posX, exists := data["position_x"]; exists {
+	if posX, exists := data["pos_x"]; exists {
 		if x, err := parseFloat(posX); err == nil {
-			originalX := x
-			// Clamp position to map bounds
-			if x < 0 {
-				x = 0
-				log.Printf("Clamped X position for user %s: %.2f -> %.2f (below minimum)", username, originalX, x)
-			} else if x >= 20 {
-				x = 20
-				log.Printf("Clamped X position for user %s: %.2f -> %.2f (above maximum)", username, originalX, x)
-			}
 			newPosition.X = x
 			log.Printf("Updated X position for user %s: %.2f", username, x)
 		} else {
@@ -158,15 +149,6 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, username string, mes
 
 	if posY, exists := data["pos_y"]; exists {
 		if y, err := parseFloat(posY); err == nil {
-			originalY := y
-			// Clamp position to map bounds
-			if y < 0 {
-				y = 0
-				log.Printf("Clamped Y position for user %s: %.2f -> %.2f (below minimum)", username, originalY, y)
-			} else if y >= 20 {
-				y = 20
-				log.Printf("Clamped Y position for user %s: %.2f -> %.2f (above maximum)", username, originalY, y)
-			}
 			newPosition.Y = y
 			log.Printf("Updated Y position for user %s: %.2f", username, y)
 		} else {
