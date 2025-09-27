@@ -9,7 +9,7 @@
     import TargetBlockIcon from '$lib/components/game/target-block-icon.svelte';
     import JoinForm from '$lib/components/ui/join-form.svelte';
     import { playerState } from '$lib/player-state.svelte.js';
-    import type { GameStateResponse } from '$lib/types/game';
+    import type { GameStateResponse, GameState } from '$lib/types/game';
     import { gamePlayerToPlayerSummary } from '$lib/types/game';
     import type { PlayerOnBoard, PlayerSummary } from '$lib/types/player';
     import { onDestroy } from 'svelte';
@@ -32,13 +32,14 @@
     let wsClient: WebSocketGameClient | null = null;
 
     // Game state from WebSocket
-    let gameState = $state<GameStateResponse>({
+    let gameState = $state<GameState>({
         game_id: '',
         phase: 'pre-game',
         players: [],
         map: [],
         countdown_seconds: null,
-        target_color: 0
+        target_color: 0,
+        lastUpdated: Date.now()
     });
 
     // Derived values for UI
@@ -85,7 +86,12 @@
         });
 
         client.on('onGameUpdate', (updatedGameState) => {
-            gameState = updatedGameState;
+            // Merge the updated state with existing state, keeping client-side properties
+            gameState = {
+                ...gameState,
+                ...updatedGameState,
+                lastUpdated: Date.now()
+            };
 
             // Sync player position with server
             const selfPlayerSummary = updatedGameState.players

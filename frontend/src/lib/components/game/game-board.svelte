@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import type { PlayerOnBoard } from '$lib/types/player';
+    import { BLOCK_TEXTURE_NAMES } from '$lib/constants/block-textures';
 
     /**
      * Canvas-based renderer for the Blind Party map.
@@ -16,14 +17,12 @@
 
     let { mapSize, gameMap = [], tileSize = 32, players = [], selfPlayer = null }: Props = $props();
 
-    const textureModules = import.meta.glob('$lib/assets/blocks/*.png', {
-        as: 'url',
-        eager: true
-    });
-
-    const textureUrls = Object.entries(textureModules)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([, url]) => url as string);
+    // Use centralized block texture names to dynamically import textures
+    const textureUrls = BLOCK_TEXTURE_NAMES.map(name => {
+        const modules = import.meta.glob('$lib/assets/blocks/*.png', { as: 'url', eager: true });
+        const path = `/src/lib/assets/blocks/${name}.png`;
+        return modules[path] as string;
+    }).filter(Boolean);
 
     let normalizedMapSize = $derived.by(() => Math.max(1, Math.floor(mapSize ?? 0)));
     let safeTileSize = $derived.by(() => Math.max(8, Math.floor(tileSize ?? 0) || 32));

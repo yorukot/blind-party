@@ -1,5 +1,4 @@
 import type { PlayerSummary } from './player.js';
-import { WoolColor } from '../constants/block-textures.js';
 
 /**
  * Game phase enumeration representing the current state of the game
@@ -111,45 +110,4 @@ export function getPhaseDisplayName(phase: GamePhase): string {
         case 'settlement':
             return 'Game Over';
     }
-}
-
-/**
- * Get block name from wool color number
- */
-export function getBlockName(woolColor: number): string {
-    const colorName = WoolColor[woolColor];
-    if (colorName === undefined) {
-        return 'Unknown';
-    }
-
-    // Convert enum name to display format (e.g., "LightBlue" -> "Light Blue")
-    return colorName.replace(/([A-Z])/g, ' $1').trim();
-}
-
-
-/**
- * Get CSS color value for wool color number
- */
-export function getBlockColor(woolColor: number): string {
-    const colorMap: Record<number, string> = {
-        [WoolColor.White]: '#f8f8ff',
-        [WoolColor.Orange]: '#ff8c00',
-        [WoolColor.Magenta]: '#ff00ff',
-        [WoolColor.LightBlue]: '#87ceeb',
-        [WoolColor.Yellow]: '#ffff00',
-        [WoolColor.Lime]: '#32cd32',
-        [WoolColor.Pink]: '#ffc0cb',
-        [WoolColor.Gray]: '#808080',
-        [WoolColor.LightGray]: '#d3d3d3',
-        [WoolColor.Cyan]: '#00ffff',
-        [WoolColor.Purple]: '#800080',
-        [WoolColor.Blue]: '#0000ff',
-        [WoolColor.Brown]: '#a0522d',
-        [WoolColor.Green]: '#008000',
-        [WoolColor.Red]: '#ff0000',
-        [WoolColor.Black]: '#000000',
-        [WoolColor.Air]: '#transparent'
-    };
-
-    return colorMap[woolColor] || '#f8f8ff';
 }
