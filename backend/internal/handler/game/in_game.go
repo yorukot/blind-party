@@ -26,6 +26,9 @@ func (h *GameHandler) handleInGamePhase(game *schema.Game) {
 	// Validate player movements every tick
 	h.validatePlayerMovements(game)
 
+	// Broadcast player positions at configured frequency (10Hz = every 2 ticks at 20Hz)
+	h.broadcastPlayerPositions(game)
+
 	// Check if we need to process round timing
 	if game.Ticker != nil {
 		select {
@@ -672,4 +675,74 @@ func (h *GameHandler) calculateRushDuration(game *schema.Game, roundNumber int) 
 	// If no range matches, use the last range's duration (for rounds beyond the configured ranges)
 	lastRange := game.Config.TimingProgression[len(game.Config.TimingProgression)-1]
 	return lastRange.Duration
+}
+
+// broadcastPlayerPositions sends current player positions to all clients at configured frequency
+func (h *GameHandler) broadcastPlayerPositions(game *schema.Game) {
+	// Only broadcast positions during active gameplay
+	if game.Phase != schema.InGame {
+		return
+	}
+
+	// Check if we should broadcast positions based on configured frequency
+	// Position update rate is 10Hz while game tick is 20Hz, so broadcast every 2 ticks
+	positionInterval := time.Duration(1000/game.Config.PositionUpdateHz) * time.Millisecond // 100ms for 10Hz
+
+	currentTime := time.Now()
+
+	// Initialize last position broadcast time if not set
+	if game.LastPositionBroadcast.IsZero() {
+		game.LastPositionBroadcast = currentTime
+		return
+	}
+
+	// Check if enough time has passed since last position broadcast
+	if currentTime.Sub(game.LastPositionBroadcast) < positionInterval {
+		return
+	}
+
+	// Update last broadcast time
+	game.LastPositionBroadcast = currentTime
+
+	// Pre-allocate slice with estimated capacity for better performance
+	estimatedPlayerCount := game.AliveCount
+	if estimatedPlayerCount <= 0 {
+		return // No active players to broadcast
+	}
+
+	activePlayerPositions := make([]map[string]interface{}, 0, estimatedPlayerCount)
+
+	game.Mu.RLock()
+	roundNumber := 0
+	if game.CurrentRound != nil {
+		roundNumber = game.CurrentRound.Number
+	}
+
+	// Efficiently collect only active players
+	for _, player := range game.Players {
+		// Only include non-eliminated players (spectators can still be shown)
+		if !player.IsEliminated {
+			activePlayerPositions = append(activePlayerPositions, map[string]interface{}{
+				"user_id":      player.ID,
+				"name":         player.Name,
+				"pos_x":        player.Position.X,
+				"pos_y":        player.Position.Y,
+				"is_spectator": player.IsSpectator,
+			})
+		}
+	}
+	game.Mu.RUnlock()
+
+	// Only broadcast if there are active players
+	if len(activePlayerPositions) > 0 {
+		// Broadcast player positions to all clients
+		game.Broadcast <- map[string]interface{}{
+			"type": "player_positions_update",
+			"data": map[string]interface{}{
+				"players":      activePlayerPositions,
+				"round_number": roundNumber,
+				"timestamp":    currentTime.UnixMilli(),
+			},
+		}
+	}
 }

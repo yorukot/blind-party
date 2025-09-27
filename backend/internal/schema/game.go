@@ -192,7 +192,8 @@ type Game struct {
 	Config GameConfig `json:"config"`
 
 	// Synchronization
-	Mu         sync.RWMutex
-	Ticker     *time.Ticker
-	StopTicker chan bool
+	Mu                    sync.RWMutex
+	Ticker                *time.Ticker
+	StopTicker            chan bool
+	LastPositionBroadcast time.Time `json:"-"` // Tracks when positions were last broadcast
 }

@@ -354,6 +354,31 @@ Sent to a specific client if their movement update was invalid. The client shoul
     }
     ```
 
+#### `player_positions_update`
+
+Broadcast periodically during the game to update all player positions. Sent at 10Hz (every 100ms) during active gameplay.
+
+-   **Type:** `player_positions_update`
+-   **Payload:**
+    ```json
+    {
+      "type": "player_positions_update",
+      "data": {
+        "players": [
+          {
+            "user_id": "player_123",
+            "name": "PlayerName",
+            "pos_x": 10.5,
+            "pos_y": 7.25,
+            "is_spectator": false
+          }
+        ],
+        "round_number": 1,
+        "timestamp": 1693728000000
+      }
+    }
+    ```
+
 #### `pong`
 
 Sent in response to a client's `ping` message.
