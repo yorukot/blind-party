@@ -1,28 +1,35 @@
 <script lang="ts">
     import { flip } from 'svelte/animate';
     import { slide } from 'svelte/transition';
-
-    export interface PlayerSummary {
-        id: string;
-        name: string;
-        status: 'spectating' | 'ingame' | 'eliminated';
-        accent: string;
-    }
+    import type { PlayerSummary } from '$lib/types/player';
 
     interface Props {
         players: PlayerSummary[];
+        selfPlayer?: PlayerSummary | null;
     }
 
-    let { players = $bindable() }: Props = $props();
+    let { players = $bindable(), selfPlayer = null }: Props = $props();
 
-    let totalPlayers = $derived(players.length);
-    let activePlayers = $derived(players.filter((player) => player.status === 'ingame').length);
-    let inactivePlayers = $derived(players.filter((player) => player.status !== 'ingame').length);
-    let sortedPlayers = $derived(
-        players.toSorted((a, b) => {
-            const statusOrder = { ingame: 0, eliminated: 1, spectating: 2 };
-            return statusOrder[a.status] - statusOrder[b.status];
-        })
+    let selfPlayerId = $derived(selfPlayer?.id ?? null);
+
+    const statusOrder = { ingame: 0, eliminated: 1, spectating: 2 } as const;
+
+    let otherPlayersSorted = $derived.by(() =>
+        players
+            .filter((player) => player.id !== selfPlayerId)
+            .toSorted((a, b) => statusOrder[a.status] - statusOrder[b.status])
+    );
+
+    let sortedPlayers = $derived.by(() =>
+        selfPlayer ? [selfPlayer, ...otherPlayersSorted] : otherPlayersSorted
+    );
+
+    let totalPlayers = $derived(sortedPlayers.length);
+    let activePlayers = $derived.by(
+        () => sortedPlayers.filter((player) => player.status === 'ingame').length
+    );
+    let inactivePlayers = $derived.by(
+        () => sortedPlayers.filter((player) => player.status !== 'ingame').length
     );
 </script>
 
@@ -55,25 +62,35 @@
                 {/if}
 
                 <div
-                    class="pixel-card flex items-center justify-between gap-3 rounded-xl border-2 border-black {player.status ===
-                    'ingame'
-                        ? 'bg-slate-900/80'
-                        : 'bg-slate-900/50 opacity-75'} px-4 py-3 shadow-[4px_4px_0px_rgba(0,0,0,0.6)] transition-all duration-500 ease-in-out"
+                    class={`pixel-card flex items-center justify-between gap-3 rounded-xl border-2 border-black px-4 py-3 shadow-[4px_4px_0px_rgba(0,0,0,0.6)] transition-all duration-500 ease-in-out ${
+                        player.id === selfPlayerId
+                            ? 'bg-slate-900/90 ring-4 ring-amber-300/90 ring-offset-2 ring-offset-black'
+                            : player.status === 'ingame'
+                              ? 'bg-slate-900/80'
+                              : 'bg-slate-900/50 opacity-75'
+                    }`}
                 >
                     <div class="flex items-center gap-3">
                         <span
-                            class={`h-10 w-10 rounded-lg border-2 border-black bg-gradient-to-br ${player.accent} shadow-[2px_2px_0px_rgba(0,0,0,0.5)] ${player.status !== 'ingame' ? 'grayscale' : ''} transition-all duration-500 ease-in-out`}
+                            class={`relative h-10 w-10 rounded-lg border-2 border-black bg-gradient-to-br ${player.accent} shadow-[2px_2px_0px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out ${player.status !== 'ingame' ? 'grayscale' : ''}`}
                         ></span>
                         <div>
                             <p
-                                class="font-minecraft text-lg tracking-wide text-yellow-100 uppercase {player.status !==
-                                'ingame'
-                                    ? 'opacity-70'
-                                    : ''} transition-all duration-500 ease-in-out"
+                                class={`font-minecraft text-lg tracking-wide uppercase transition-all duration-500 ease-in-out ${
+                                    player.status !== 'ingame'
+                                        ? 'text-yellow-100/70'
+                                        : 'text-yellow-100'
+                                }`}
                             >
                                 {player.name}
                             </p>
-                            {#if player.status === 'eliminated'}
+                            {#if player.id === selfPlayerId}
+                                <p
+                                    class="text-xs tracking-[0.25em] text-amber-200/80 uppercase transition-all duration-500 ease-in-out"
+                                >
+                                    You
+                                </p>
+                            {:else if player.status === 'eliminated'}
                                 <p
                                     class="text-xs tracking-[0.25em] text-rose-300/70 uppercase transition-all duration-500 ease-in-out"
                                 >
@@ -95,16 +112,20 @@
                         </div>
                     </div>
                     <button
-                        class="cursor-pointer rounded-md border-2 border-black {player.status ===
-                        'ingame'
-                            ? 'bg-slate-800/80'
-                            : 'bg-slate-800/50'} px-3 py-1 text-[0.65rem] tracking-[0.3em] {player.status ===
-                        'ingame'
-                            ? 'text-blue-100/70'
-                            : 'text-blue-100/50'} uppercase shadow-[2px_2px_0px_rgba(0,0,0,0.45)] transition-all duration-500 ease-in-out hover:bg-slate-700"
+                        class={`cursor-pointer rounded-md border-2 border-black px-3 py-1 text-[0.65rem] tracking-[0.3em] uppercase shadow-[2px_2px_0px_rgba(0,0,0,0.45)] transition-all duration-500 ease-in-out ${
+                            player.id === selfPlayerId
+                                ? 'pointer-events-none bg-slate-800/70 text-amber-200/70 opacity-80'
+                                : player.status === 'ingame'
+                                  ? 'bg-slate-800/80 text-blue-100/70 hover:bg-slate-700'
+                                  : 'bg-slate-800/50 text-blue-100/50'
+                        }`}
                         type="button"
-                        disabled={player.status !== 'ingame'}
+                        disabled={player.id === selfPlayerId || player.status !== 'ingame'}
                         onclick={() => {
+                            if (player.id === selfPlayerId) {
+                                return;
+                            }
+
                             if (player.status === 'ingame') {
                                 const originalIndex = players.findIndex((p) => p.id === player.id);
                                 if (originalIndex !== -1) {

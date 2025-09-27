@@ -39,7 +39,9 @@
             `color-mix(in srgb, var(--countdown-bar-fill) 78%, rgba(0, 0, 0, 0.08)) 100%)`;
         return `width: ${progress}%; background: ${barGradient}; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.35);`;
     });
-    let labelStyle = $derived(`color: color-mix(in srgb, var(--countdown-bar-fill) 82%, white 18%);`);
+    let labelStyle = $derived(
+        `color: color-mix(in srgb, var(--countdown-bar-fill) 82%, white 18%);`
+    );
     let timeStyle = $derived(
         'color: color-mix(in srgb, var(--countdown-bar-fill) 94%, white 6%); ' +
             'text-shadow: 2px 2px 0 rgba(0,0,0,0.7);'
@@ -71,10 +73,16 @@
     style={containerStyle}
 >
     <div class="flex items-center justify-between text-xs tracking-[0.3em] uppercase">
-        <span class="font-minecraft text-sm drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]" style={labelStyle}>
+        <span
+            class="font-minecraft text-sm drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]"
+            style={labelStyle}
+        >
             {label}
         </span>
-        <span class="font-minecraft text-base drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]" style={timeStyle}>
+        <span
+            class="font-minecraft text-base drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]"
+            style={timeStyle}
+        >
             {formattedTime}
         </span>
     </div>

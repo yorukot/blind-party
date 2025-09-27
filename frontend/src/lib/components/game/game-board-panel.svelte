@@ -1,15 +1,25 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import GameBoard from './game-board.svelte';
+    import type { PlayerOnBoard } from '$lib/types/player';
 
     interface Props {
         mapSize: number;
         targetSize?: number;
         minTileSize?: number;
         maxTileSize?: number;
+        players?: PlayerOnBoard[];
+        selfPlayer?: PlayerOnBoard | null;
     }
 
-    let { mapSize, targetSize = 560, minTileSize = 10, maxTileSize = 48 }: Props = $props();
+    let {
+        mapSize,
+        targetSize = 560,
+        minTileSize = 10,
+        maxTileSize = 48,
+        players = [],
+        selfPlayer = null
+    }: Props = $props();
 
     let container: HTMLElement | null = null;
     let containerWidth = $state(targetSize);
@@ -51,5 +61,5 @@
     bind:this={container}
     class="flex w-full items-center justify-center rounded-3xl border-4 border-black bg-slate-950/90 p-4 shadow-[0_16px_0px_rgba(0,0,0,0.55)] backdrop-blur"
 >
-    <GameBoard mapSize={safeMapSize} tileSize={computedTileSize} />
+    <GameBoard mapSize={safeMapSize} tileSize={computedTileSize} {players} {selfPlayer} />
 </section>

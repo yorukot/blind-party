@@ -61,7 +61,6 @@
             class="relative flex flex-col items-center gap-6 rounded-[32px] border-4 px-12 py-10 text-center text-white shadow-[0_18px_60px_rgba(0,0,0,0.4)]"
             style={overlayStyle}
         >
-
             <span
                 class="font-minecraft text-[0.85rem] tracking-[0.4em] uppercase drop-shadow-[3px_3px_0_rgba(0,0,0,0.4)]"
                 style={labelStyle}
@@ -88,11 +87,9 @@
 {/if}
 
 <style>
-
     .countdown-number {
         animation: overlay-pop 1s cubic-bezier(0.21, 1.12, 0.59, 1) forwards;
     }
-
 
     @keyframes overlay-breathe {
         0%,
