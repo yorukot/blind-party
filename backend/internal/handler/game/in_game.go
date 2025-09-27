@@ -54,13 +54,17 @@ func (h *GameHandler) removeNonTargetColors(game *schema.Game, targetColor schem
 
 // calculateRoundDuration returns the rush duration based on round number
 func (h *GameHandler) calculateRoundDuration(roundNumber int) float64 {
-	// Progressive timing: starts at 4.0s and decreases each round
+	// Progressive timing: starts at 20.0s and decreases to 80% each round
 	// Based on game.md requirement for decreasing countdown each round
-	baseDuration := 4.0
-	decreasePerRound := 0.1
+	baseDuration := 20.0
 	minDuration := 1.2
 
-	duration := baseDuration - (float64(roundNumber-1) * decreasePerRound)
+	// Calculate duration as 80% of previous round (exponential decay)
+	duration := baseDuration
+	for i := 1; i < roundNumber; i++ {
+		duration *= 0.8
+	}
+
 	if duration < minDuration {
 		duration = minDuration
 	}
@@ -116,7 +120,7 @@ func (h *GameHandler) startNewRound(game *schema.Game) {
 
 	// Broadcast new round start
 	game.Broadcast <- map[string]any{
-		"event": "round_start",
+		"event": "game_update",
 		"data": map[string]any{
 			"round_number": game.RoundNumber,
 			"target_color": targetColor,
@@ -163,7 +167,7 @@ func (h *GameHandler) handleColorCallPhase(game *schema.Game) {
 
 	// Broadcast countdown update
 	game.Broadcast <- map[string]any{
-		"event": "countdown_update",
+		"event": "game_update",
 		"data": map[string]any{
 			"countdown_seconds": game.Countdown,
 			"target_color": game.CurrentRound.ColorToShow,
@@ -177,7 +181,7 @@ func (h *GameHandler) handleColorCallPhase(game *schema.Game) {
 
 		// Broadcast map change
 		game.Broadcast <- map[string]any{
-			"event": "map_update",
+			"event": "game_update",
 			"data": map[string]any{
 				"map": h.convertMapToArray(game),
 				"blocks_removed": true,
@@ -228,7 +232,7 @@ func (h *GameHandler) handleEliminationCheckPhase(game *schema.Game) {
 	// Broadcast elimination results
 	if len(eliminatedPlayers) > 0 {
 		game.Broadcast <- map[string]any{
-			"event": "players_eliminated",
+			"event": "game_update",
 			"data": map[string]any{
 				"eliminated_players": eliminatedPlayers,
 				"round_number": game.CurrentRound.Number,
@@ -265,7 +269,7 @@ func (h *GameHandler) handleEliminationCheckPhase(game *schema.Game) {
 		}
 
 		game.Broadcast <- map[string]any{
-			"event": "game_ended",
+			"event": "game_update",
 			"data": map[string]any{
 				"winner_id": winnerID,
 				"end_time": now,
@@ -282,7 +286,7 @@ func (h *GameHandler) handleEliminationCheckPhase(game *schema.Game) {
 
 		// Broadcast round end
 		game.Broadcast <- map[string]any{
-			"event": "round_ended",
+			"event": "game_update",
 			"data": map[string]any{
 				"round_number": game.CurrentRound.Number,
 				"alive_count": aliveCount,
