@@ -1,6 +1,6 @@
 <script lang="ts">
-    import RoundCountdownBar from '$lib/components/game/countdown-bar.svelte';
-    import RoundCountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
+    import CountdownBar from '$lib/components/game/countdown-bar.svelte';
+    import CountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster, { type PlayerSummary } from '$lib/components/game/player-roster.svelte';
@@ -52,9 +52,9 @@
             </p>
         </header>
 
-        <RoundCountdownBar duration={90} fillColor="#facc15" />
+        <CountdownBar duration={90} fillColor="#facc15" />
 
-        <RoundCountdownOverlay {remainingSeconds} />
+        <CountdownOverlay {remainingSeconds} />
 
         <div class="flex flex-col gap-8 lg:flex-row">
             <GameBoardPanel {mapSize} />
