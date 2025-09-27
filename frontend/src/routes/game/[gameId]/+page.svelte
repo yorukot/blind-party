@@ -1,7 +1,10 @@
 <script lang="ts">
+    import CountdownBar from '$lib/components/game/countdown-bar.svelte';
+    import CountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster, { type PlayerSummary } from '$lib/components/game/player-roster.svelte';
+    import { onMount } from 'svelte';
 
     interface Props {
         params: {
@@ -22,6 +25,15 @@
         { id: '3', name: 'NeonNova', status: 'spectating', accent: 'from-pink-400 to-rose-600' },
         { id: '4', name: 'ByteKnight', status: 'eliminated', accent: 'from-slate-500 to-slate-700' }
     ]);
+
+    let remainingSeconds = $state(5);
+    onMount(() => {
+        setInterval(() => {
+            if (remainingSeconds > 0) {
+                remainingSeconds -= 1;
+            }
+        }, 1000);
+    });
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
@@ -39,6 +51,10 @@
                 Preview the arena layout and lobby roster while we hook up the live game feed.
             </p>
         </header>
+
+        <CountdownBar duration={90} fillColor="#facc15" />
+
+        <CountdownOverlay {remainingSeconds} />
 
         <div class="flex flex-col gap-8 lg:flex-row">
             <GameBoardPanel {mapSize} />
