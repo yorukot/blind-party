@@ -10,7 +10,7 @@
 
 	let { disabled = false, onMove }: Props = $props();
 
-	let activeDirection = $state<Direction | null>(null);
+	let activeDirections = $state<SvelteSet<Direction>>(new SvelteSet());
 
 	const keyDirectionMap: Record<string, Direction> = {
 		ArrowUp: 'up',
@@ -43,14 +43,12 @@
 			return;
 		}
 
-		activeDirection = direction;
+		activeDirections.add(direction);
 		onMove?.(direction);
 	}
 
-	function clearDirection(direction: Direction | null) {
-		if (direction && activeDirection === direction) {
-			activeDirection = null;
-		}
+	function clearDirection(direction: Direction) {
+		activeDirections.delete(direction);
 	}
 
 	function handlePointerDown(direction: Direction, event: PointerEvent) {
@@ -119,9 +117,13 @@
 	aria-label="Player movement controls"
 >
 	<div class="flex flex-col items-center gap-6">
-		<div class="flex w-full flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-			<h2 class="font-minecraft text-xl uppercase tracking-[0.35em] text-cyan-200">Movement</h2>
-			<p class="text-xs uppercase tracking-[0.3em] text-blue-200/70">
+		<div
+			class="flex w-full flex-col items-start justify-between gap-2 sm:flex-row sm:items-center"
+		>
+			<h2 class="font-minecraft text-xl tracking-[0.35em] text-cyan-200 uppercase">
+				Movement
+			</h2>
+			<p class="text-xs tracking-[0.3em] text-blue-200/70 uppercase">
 				Use Arrow Keys or WASD
 			</p>
 		</div>
@@ -130,14 +132,23 @@
 			<div></div>
 			<button
 				type="button"
-				class={`control-button ${activeDirection === 'up' ? 'is-active' : ''}`}
+				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
+					activeDirections.has('up')
+						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
+						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
+				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
 				onpointerdown={(event) => handlePointerDown('up', event)}
 				onpointerup={(event) => handlePointerEnd('up', event)}
 				onpointerleave={(event) => handlePointerEnd('up', event)}
 				onpointercancel={(event) => handlePointerEnd('up', event)}
 				aria-label="Move up"
 			>
-				<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="h-5 w-5">
+				<svg
+					viewBox="0 0 24 24"
+					fill="currentColor"
+					aria-hidden="true"
+					class="h-5 w-5 drop-shadow-[2px_2px_0_rgba(0,0,0,0.4)]"
+				>
 					<path d="M12 5.5 5 13h4v6h6v-6h4z" />
 				</svg>
 			</button>
@@ -145,37 +156,55 @@
 
 			<button
 				type="button"
-				class={`control-button ${activeDirection === 'left' ? 'is-active' : ''}`}
+				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
+					activeDirections.has('left')
+						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
+						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
+				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
 				onpointerdown={(event) => handlePointerDown('left', event)}
 				onpointerup={(event) => handlePointerEnd('left', event)}
 				onpointerleave={(event) => handlePointerEnd('left', event)}
 				onpointercancel={(event) => handlePointerEnd('left', event)}
 				aria-label="Move left"
 			>
-				<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="h-5 w-5">
+				<svg
+					viewBox="0 0 24 24"
+					fill="currentColor"
+					aria-hidden="true"
+					class="h-5 w-5 drop-shadow-[2px_2px_0_rgba(0,0,0,0.4)]"
+				>
 					<path d="M5.5 12 13 19v-4h6v-6h-6V5z" />
 				</svg>
 			</button>
 
 			<button
 				type="button"
-				class="control-button center"
+				class="pointer-events-none inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black bg-slate-900/80 text-blue-200/50 opacity-50 shadow-none"
 				disabled
 				aria-hidden="true"
 			>
-				<span class="text-[0.6rem] uppercase tracking-[0.3em] text-blue-200/70">Move</span>
+				<span class="text-[0.6rem] tracking-[0.3em] uppercase">Move</span>
 			</button>
 
 			<button
 				type="button"
-				class={`control-button ${activeDirection === 'right' ? 'is-active' : ''}`}
+				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
+					activeDirections.has('right')
+						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
+						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
+				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
 				onpointerdown={(event) => handlePointerDown('right', event)}
 				onpointerup={(event) => handlePointerEnd('right', event)}
 				onpointerleave={(event) => handlePointerEnd('right', event)}
 				onpointercancel={(event) => handlePointerEnd('right', event)}
 				aria-label="Move right"
 			>
-				<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="h-5 w-5">
+				<svg
+					viewBox="0 0 24 24"
+					fill="currentColor"
+					aria-hidden="true"
+					class="h-5 w-5 drop-shadow-[2px_2px_0_rgba(0,0,0,0.4)]"
+				>
 					<path d="M18.5 12 11 5v4H5v6h6v4z" />
 				</svg>
 			</button>
@@ -183,14 +212,23 @@
 			<div></div>
 			<button
 				type="button"
-				class={`control-button ${activeDirection === 'down' ? 'is-active' : ''}`}
+				class={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border-3 border-black text-xs tracking-wider text-blue-100 uppercase transition-all duration-100 ease-in-out ${
+					activeDirections.has('down')
+						? 'translate-y-0.5 bg-gradient-to-br from-red-400/60 to-red-600/80 text-orange-50 shadow-[2px_2px_0_rgba(0,0,0,0.6)]'
+						: 'bg-gradient-to-br from-blue-400/40 to-blue-600/75 shadow-[4px_4px_0_rgba(0,0,0,0.55)] hover:shadow-[3px_3px_0_rgba(0,0,0,0.6)]'
+				} focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/85`}
 				onpointerdown={(event) => handlePointerDown('down', event)}
 				onpointerup={(event) => handlePointerEnd('down', event)}
 				onpointerleave={(event) => handlePointerEnd('down', event)}
 				onpointercancel={(event) => handlePointerEnd('down', event)}
 				aria-label="Move down"
 			>
-				<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="h-5 w-5">
+				<svg
+					viewBox="0 0 24 24"
+					fill="currentColor"
+					aria-hidden="true"
+					class="h-5 w-5 drop-shadow-[2px_2px_0_rgba(0,0,0,0.4)]"
+				>
 					<path d="M12 18.5 19 11h-4V5H9v6H5z" />
 				</svg>
 			</button>
@@ -198,7 +236,8 @@
 		</div>
 
 		<p class="text-xs text-blue-200/60">
-			Tap or press a direction to queue a move. Keyboard input works even when the buttons are not focused.
+			Tap or press directions to queue moves. Multiple keys can be pressed simultaneously.
+			Keyboard input works even when the buttons are not focused.
 		</p>
 	</div>
 </section>
@@ -208,54 +247,5 @@
 		text-rendering: optimizeSpeed;
 		-webkit-font-smoothing: none;
 		-moz-osx-font-smoothing: grayscale;
-	}
-
-	.control-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		height: 4rem;
-		width: 4rem;
-		border-radius: 1rem;
-		border-width: 3px;
-		border-style: solid;
-		border-color: #000;
-		background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.75));
-		box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55);
-		transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease;
-		color: #e0f2fe;
-		text-transform: uppercase;
-		font-family: 'Inter', sans-serif;
-		font-size: 0.75rem;
-		letter-spacing: 0.2em;
-	}
-
-	.control-button svg {
-		filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.4));
-	}
-
-	.control-button:active,
-	.control-button.is-active {
-		transform: translateY(2px);
-		box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
-		background: linear-gradient(135deg, rgba(248, 113, 113, 0.6), rgba(239, 68, 68, 0.8));
-		color: #fff7ed;
-	}
-
-	.control-button:focus-visible {
-		outline: 3px solid rgba(255, 255, 255, 0.85);
-		outline-offset: 2px;
-	}
-
-	.control-button[disabled] {
-		opacity: 0.5;
-		box-shadow: none;
-		pointer-events: none;
-	}
-
-	.control-button.center {
-		background: rgba(15, 23, 42, 0.8);
-		color: rgba(191, 219, 254, 0.5);
-		box-shadow: inset 0 0 0px 1px rgba(148, 163, 184, 0.25);
 	}
 </style>
