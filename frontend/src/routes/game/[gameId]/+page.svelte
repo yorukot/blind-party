@@ -50,9 +50,16 @@
 
 		<div class="flex flex-col gap-8 lg:flex-row">
 			<GameBoardPanel {mapSize} />
+			<!-- Show movement controls between board and roster on mobile -->
+			<div class="lg:hidden">
+				<PlayerMovementControls onMove={handlePlayerMove} />
+			</div>
 			<PlayerRoster bind:players />
 		</div>
 
-		<PlayerMovementControls onMove={handlePlayerMove} />
+		<!-- Keep the original controls visible only on large screens (desktop) -->
+		<div class="hidden lg:block">
+			<PlayerMovementControls onMove={handlePlayerMove} />
+		</div>
 	</div>
 </div>
