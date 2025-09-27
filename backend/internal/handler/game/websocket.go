@@ -3,7 +3,6 @@ package game
 import (
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"time"
 
@@ -13,9 +12,6 @@ import (
 	"github.com/yorukot/blind-party/internal/schema"
 )
 
-// Maximum allowed movement speed (blocks per second)
-// Adjust this value based on your game's movement mechanics
-const MaxMovementSpeed = 0.07
 
 // ConnectWebSocket handles WebSocket connections for a specific game
 func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
@@ -134,9 +130,6 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, userID string, messa
 		return
 	}
 
-	// Store old position for speed validation
-	oldPosition := player.Position
-	oldTime := player.LastUpdate
 	newPosition := player.Position
 
 	// Extract new position coordinates
@@ -164,47 +157,11 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, userID string, messa
 		}
 	}
 
-	// TODO: we should move this to the game loop? YEAH
-	// Validate movement speed using Pythagorean theorem
-	currentTime := time.Now()
-	timeDelta := currentTime.Sub(oldTime).Seconds()
-
-	// Skip validation for the first update (no previous position)
-	if timeDelta > 0 && !oldTime.IsZero() {
-		// Calculate distance moved using Pythagorean theorem: sqrt((x2-x1)² + (y2-y1)²)
-		deltaX := newPosition.X - oldPosition.X
-		deltaY := newPosition.Y - oldPosition.Y
-		distance := math.Sqrt(deltaX*deltaX + deltaY*deltaY)
-
-		// Calculate actual speed (blocks per second)
-		speed := distance / timeDelta
-
-		// Check if speed exceeds maximum allowed
-		if speed > MaxMovementSpeed {
-			log.Printf("Player %s (%s) moving too fast: %.2f blocks/second (max: %.2f). Rejecting movement.",
-				player.ID, player.Name, speed, MaxMovementSpeed)
-
-			// Reject the movement by not updating the position
-			// Optionally send a warning to the client
-			if client, exists := game.Clients[userID]; exists {
-				client.Send <- map[string]interface{}{
-					"type": "movement_rejected",
-					"data": map[string]interface{}{
-						"reason": "movement_too_fast",
-						"speed":  speed,
-						"max_speed": MaxMovementSpeed,
-					},
-				}
-			}
-			return
-		}
-	}
-
-	// Update player position (movement is valid)
+	// Update player position (validation moved to game lifecycle)
 	player.Position = newPosition
 
 	// Update last update time
-	player.LastUpdate = currentTime
+	player.LastUpdate = time.Now()
 }
 
 // generateUserID creates a unique user ID
