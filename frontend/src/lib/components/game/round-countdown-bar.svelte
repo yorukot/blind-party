@@ -4,13 +4,15 @@
         label?: string;
         autoStart?: boolean;
         fillColor?: string;
+        borderColor?: string;
     }
 
     let {
         duration = 90,
         label = 'Round Countdown',
         autoStart = true,
-        fillColor = '#22c55e'
+        fillColor = '#22c55e',
+        borderColor
     }: Props = $props();
 
     let remaining = $state(Math.max(duration, 0));
@@ -21,9 +23,27 @@
         const seconds = totalSeconds % 60;
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     });
-    let fillStyle = $derived.by(() => {
-        return `width: ${progress}%; background-color: ${fillColor}; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.35);`;
+    let resolvedBorderColor = $derived(borderColor ?? fillColor);
+    let containerStyle = $derived.by(() => {
+        const frameColor = `color-mix(in srgb, ${resolvedBorderColor} 55%, rgba(15, 23, 42, 0.52))`;
+        const backgroundGradient =
+            'linear-gradient(135deg, rgba(2, 6, 23, 0.95) 0%, ' +
+            `color-mix(in srgb, ${fillColor} 12%, rgba(15, 23, 42, 0.82)) 38%, ` +
+            `rgba(2, 6, 23, 0.92) 100%)`;
+        return `--countdown-bar-fill: ${fillColor}; border-color: ${frameColor}; background: ${backgroundGradient};`;
     });
+    let fillStyle = $derived.by(() => {
+        const barGradient =
+            'linear-gradient(270deg, ' +
+            `color-mix(in srgb, var(--countdown-bar-fill) 96%, white 4%) 0%, ` +
+            `color-mix(in srgb, var(--countdown-bar-fill) 78%, rgba(0, 0, 0, 0.08)) 100%)`;
+        return `width: ${progress}%; background: ${barGradient}; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.35);`;
+    });
+    let labelStyle = $derived(`color: color-mix(in srgb, var(--countdown-bar-fill) 82%, white 18%);`);
+    let timeStyle = $derived(
+        'color: color-mix(in srgb, var(--countdown-bar-fill) 94%, white 6%); ' +
+            'text-shadow: 2px 2px 0 rgba(0,0,0,0.7);'
+    );
 
     $effect(() => {
         if (!autoStart || duration <= 0) {
@@ -47,17 +67,14 @@
 </script>
 
 <section
-    class="relative w-full rounded-3xl border-4 border-yellow-400/70 bg-slate-950/80 p-4 shadow-[8px_8px_0_0_rgba(0,0,0,0.6)]"
+    class="relative w-full rounded-3xl border-4 p-4 shadow-[8px_8px_0_0_rgba(0,0,0,0.6)]"
+    style={containerStyle}
 >
-    <div
-        class="flex items-center justify-between text-xs tracking-[0.3em] text-yellow-200/90 uppercase"
-    >
-        <span
-            class="font-minecraft text-sm text-yellow-300 drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]"
-        >
+    <div class="flex items-center justify-between text-xs tracking-[0.3em] uppercase">
+        <span class="font-minecraft text-sm drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]" style={labelStyle}>
             {label}
         </span>
-        <span class="font-minecraft text-base text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]">
+        <span class="font-minecraft text-base drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]" style={timeStyle}>
             {formattedTime}
         </span>
     </div>

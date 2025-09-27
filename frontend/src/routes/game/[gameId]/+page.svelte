@@ -3,6 +3,8 @@
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster, { type PlayerSummary } from '$lib/components/game/player-roster.svelte';
     import RoundCountdownBar from '$lib/components/game/round-countdown-bar.svelte';
+    import RoundCountdownOverlay from '$lib/components/game/round-countdown-overlay.svelte';
+    import { onMount } from 'svelte';
 
     interface Props {
         params: {
@@ -23,6 +25,15 @@
         { id: '3', name: 'NeonNova', status: 'spectating', accent: 'from-pink-400 to-rose-600' },
         { id: '4', name: 'ByteKnight', status: 'eliminated', accent: 'from-slate-500 to-slate-700' }
     ]);
+
+    let remainingSeconds = $state(5);
+    onMount(() => {
+        setInterval(() => {
+            if (remainingSeconds > 0) {
+                remainingSeconds -= 1;
+            }
+        }, 1000);
+    });
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
@@ -42,6 +53,8 @@
         </header>
 
         <RoundCountdownBar duration={90} fillColor="#facc15" />
+
+        <RoundCountdownOverlay {remainingSeconds} />
 
         <div class="flex flex-col gap-8 lg:flex-row">
             <GameBoardPanel {mapSize} />
