@@ -32,7 +32,17 @@
 
 		<div class="flex flex-col gap-8 lg:flex-row">
 			<GameBoardPanel {mapSize} />
-			<PlayerRoster {players} />
+			<PlayerRoster bind:players />
+		</div>
+
+		<div class="flex flex-col gap-4">
+			<PlayerMovementControls onMove={handlePlayerMove} />
+			<p class="text-xs tracking-[0.3em] text-blue-100/60 uppercase">
+				Last input:
+				<span class="font-minecraft ml-2 text-sm text-yellow-200">
+					{lastMove ? lastMove.toUpperCase() : '---'}
+				</span>
+			</p>
 		</div>
 	</div>
 </div>
