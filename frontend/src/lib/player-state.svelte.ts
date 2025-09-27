@@ -9,7 +9,7 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 export type PositionUpdateCallback = (x: number, y: number) => void;
 
 /**
- * Class storing our own player's state with API integration.
+ * Class storing our own player's state.
  */
 class PlayerState {
     activeDirections = $state<SvelteSet<Direction>>(new SvelteSet());
@@ -134,17 +134,16 @@ class PlayerState {
 
     /**
      * Set a callback function to be called when the player position changes.
-     * This is used to send position updates to the API.
      */
     setPositionUpdateCallback(callback: PositionUpdateCallback | null): void {
         this.positionUpdateCallback = callback;
     }
 
     /**
-     * Update the local player position and optionally send to API.
+     * Update the local player position.
      * This method also triggers the position update callback if set.
      */
-    updateLocalPlayerPosition(position: PlayerPosition, skipAPIUpdate = false): void {
+    updateLocalPlayerPosition(position: PlayerPosition, skipUpdate = false): void {
         if (!this.currentLocalPlayerSnapshot) {
             return;
         }
@@ -159,9 +158,9 @@ class PlayerState {
         this.localPosition = nextPosition;
         this.currentLocalPosition = this.clonePosition(nextPosition);
 
-        // Send position update to API if callback is set and we're not skipping
+        // Send position update if callback is set and we're not skipping
         if (
-            !skipAPIUpdate &&
+            !skipUpdate &&
             this.positionUpdateCallback &&
             this.shouldSendPositionUpdate(nextPosition)
         ) {
@@ -172,8 +171,8 @@ class PlayerState {
     }
 
     /**
-     * Determine if we should send a position update to the API.
-     * This reduces unnecessary network traffic by only sending when position changes significantly
+     * Determine if we should send a position update.
+     * This reduces unnecessary callbacks by only sending when position changes significantly
      * and respects the 20Hz rate limit.
      */
     private shouldSendPositionUpdate(newPosition: PlayerPosition): boolean {
@@ -193,7 +192,7 @@ class PlayerState {
 
     /**
      * Sync the local player with data from the game state.
-     * This is called when we receive updates from the API.
+     * This is called when we receive updates from the server.
      * Only syncs position if the server position is significantly different from client position.
      */
     syncWithGameState(player: PlayerOnBoard | null): void {

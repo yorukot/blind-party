@@ -4,7 +4,7 @@
 
     /**
      * Canvas-based renderer for the Blind Party map.
-     * Displays the official map data received from the API server.
+     * Displays the game map data.
      */
     interface Props {
         mapSize: number;
@@ -105,11 +105,11 @@
     };
 
     $effect(() => {
-        // Only use map data from the API - client never generates maps
+        // Use provided map data
         if (gameMap && gameMap.length > 0) {
             mapGrid = gameMap;
         } else {
-            // Clear map if no API data is available
+            // Clear map if no data is available
             mapGrid = [];
         }
     });
