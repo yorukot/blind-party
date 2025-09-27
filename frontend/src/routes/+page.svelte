@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import logo from '$lib/assets/blind-party.png';
-	import PixelButton from '../lib/components/ui/PixelButton.svelte';
-	import PixelInput from '../lib/components/ui/PixelInput.svelte';
+	import PixelButton from '../lib/components/ui/pixel-button.svelte';
+	import PixelInput from '../lib/components/ui/pixel-input.svelte';
 
 	let gameId = $state('');
 
