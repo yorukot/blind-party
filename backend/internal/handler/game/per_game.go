@@ -5,14 +5,17 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/yorukot/blind-party/internal/config"
 	"github.com/yorukot/blind-party/internal/schema"
 )
 
 // handlePreGamePhase manages the pre-game waiting phase
 func (h *GameHandler) handlePreGamePhase(game *schema.Game) {
-	// Constants from game.md specification
-	minPlayers := 4
-	maxPlayers := 16
+	log.Printf("Game %s is in PreGame phase with %d players", game.ID, game.PlayerCount)
+	// Get player limits from configuration
+	cfg := config.Env()
+	minPlayers := cfg.MinPlayers
+	maxPlayers := cfg.MaxPlayers
 
 	// Validate player count is within bounds
 	if game.PlayerCount > maxPlayers {
@@ -20,50 +23,33 @@ func (h *GameHandler) handlePreGamePhase(game *schema.Game) {
 		return
 	}
 
-	// Start game if we have minimum players and no one has joined for a while
+	// Start game if we have minimum players
 	if game.PlayerCount >= minPlayers {
-		// Check if we should auto-start (e.g., after waiting period or max players reached)
-		if game.PlayerCount >= maxPlayers {
-			log.Printf("Game %s reached maximum capacity (%d players), starting immediately", game.ID, maxPlayers)
-			h.startGamePreparation(game)
-		} else if h.shouldAutoStart(game) {
-			log.Printf("Game %s auto-starting with %d players after wait period", game.ID, game.PlayerCount)
-			h.startGamePreparation(game)
-		}
+		log.Printf("Game %s starting with minimum players (%d)", game.ID, game.PlayerCount)
+		h.startGamePreparation(game)
 	}
-}
-
-// shouldAutoStart determines if the game should auto-start based on wait time
-func (h *GameHandler) shouldAutoStart(game *schema.Game) bool {
-	// Auto-start after 30 seconds of having minimum players, or if 75% capacity reached
-	timeSinceCreation := time.Since(game.CreatedAt)
-	capacityThreshold := float64(game.PlayerCount) / 16.0 // 16 is max players
-
-	return timeSinceCreation > 30*time.Second || capacityThreshold >= 0.75
 }
 
 // startGamePreparation begins the 5-second preparation phase
 func (h *GameHandler) startGamePreparation(game *schema.Game) {
 	log.Printf("Game %s entering preparation phase with %d players", game.ID, game.PlayerCount)
 
+	if game.Countdown <= 5 {
+		game.Countdown = 5 - game.LastTick.Compare(time.Now())
+	}
+
 	// Broadcast preparation start
 	game.Broadcast <- map[string]interface{}{
-		"type": "preparation_started",
+		"type": "game_update",
 		"data": map[string]interface{}{
-			"game_id":          game.ID,
-			"players":          game.PlayersList,
-			"preparation_time": 5, // 5 seconds preparation
+			"countdown_seconds": game.Countdown,
 		},
 	}
 
-	// Start the actual game after 5 seconds
-	time.AfterFunc(5*time.Second, func() {
-		game.Mu.Lock()
-		defer game.Mu.Unlock()
-		if game.Phase == schema.PreGame {
-			h.startGame(game)
-		}
-	})
+	if game.Countdown <= 0 {
+		h.startGame(game)
+		return
+	}
 }
 
 // startGame transitions from PreGame to InGame phase
@@ -77,17 +63,16 @@ func (h *GameHandler) startGame(game *schema.Game) {
 
 	// Initialize player statistics and movement tracking
 	h.initializeAllPlayerStats(game)
-
 	log.Printf("Game %s started with %d players", game.ID, game.PlayerCount)
 
 	// Broadcast game start with full game state
 	game.Broadcast <- map[string]interface{}{
-		"type": "game_started",
+		"type": "game_update",
 		"data": map[string]interface{}{
-			"game_id":     game.ID,
-			"players":     game.PlayersList,
-			"map":         game.MapArray,
-			"game_config": game.Config,
+			"phase":   game.Phase,
+			"game_id": game.ID,
+			"players": game.PlayersList,
+			"map":     game.MapArray,
 		},
 	}
 

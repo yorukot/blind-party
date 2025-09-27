@@ -57,26 +57,12 @@ func (h *GameHandler) NewGame(w http.ResponseWriter, r *http.Request) {
 				{StartRound: 7, EndRound: 9, Duration: 3.0},
 				{StartRound: 10, EndRound: 12, Duration: 2.5},
 				{StartRound: 13, EndRound: 15, Duration: 2.0},
-				{StartRound: 16, EndRound: 18, Duration: 1.8},
-				{StartRound: 19, EndRound: 21, Duration: 1.5},
-				{StartRound: 22, EndRound: 999, Duration: 1.2}, // 22+ rounds
 			},
-
-			// Scoring Configuration
-			SurvivalPointsPerRound:     10,
-			EliminationBonusMultiplier: 5,
-			SpeedBonusThreshold:        1.0,
-			PerfectBonusThreshold:      2.0,
-			SpeedBonusPoints:           2,
-			PerfectBonusPoints:         50,
-			FinalWinnerBonus:           100,
-			EnduranceBonus:             200,
-			StreakBonuses:              map[int]int{3: 30, 5: 75, 10: 200},
 
 			// Movement & Anti-cheat
 			BaseMovementSpeed: 4.0,
 			MaxMovementSpeed:  5.0,
-			LagCompensationMs: 100,
+			LagCompensationMs: 50,
 			PositionUpdateHz:  10,
 			TimerUpdateHz:     20,
 		},

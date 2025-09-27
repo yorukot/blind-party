@@ -1,9 +1,7 @@
 package game
 
 import (
-	"fmt"
 	"log"
-	"math/rand"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -38,13 +36,18 @@ func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 		return
 	}
 
-	// Generate a unique user ID for this connection
-	userID := generateUserID()
+	// Make sure the username is unique in the game
+	for _, player := range game.Players {
+		if player.Name == username {
+			log.Printf("Username %s already taken in game %s", username, gameID)
+			return
+		}
+	}
 
 	// Create WebSocket client
 	client := &schema.WebSocketClient{
 		Conn:      ws,
-		UserID:    userID,
+		Username:  username,
 		Token:     "", // No token needed
 		Send:      make(chan interface{}, 256),
 		Connected: time.Now(),
@@ -63,7 +66,7 @@ func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 		defer ws.Close()
 		for message := range client.Send {
 			if err := websocket.JSON.Send(ws, message); err != nil {
-				log.Printf("Error sending message to client %s: %v", userID, err)
+				log.Printf("Error sending message to client %s: %v", username, err)
 				return
 			}
 		}
@@ -74,7 +77,7 @@ func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 		var message map[string]interface{}
 		err := websocket.JSON.Receive(ws, &message)
 		if err != nil {
-			log.Printf("WebSocket read error for user %s (username: %s): %v", userID, username, err)
+			log.Printf("WebSocket read error for user %s (username: %s): %v", username, username, err)
 			break
 		}
 
@@ -82,31 +85,30 @@ func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 		if msgType, exists := message["type"]; exists {
 			switch msgType {
 			case "player_update":
-				h.handlePlayerUpdate(game, userID, message)
+				h.handlePlayerUpdate(game, username, message)
 			case "ping":
 				// Respond to ping with pong
 				client.Send <- map[string]interface{}{
 					"type": "pong",
 				}
 			default:
-				log.Printf("Unknown message type from user %s: %s", userID, msgType)
+				log.Printf("Unknown message type from user %s: %s", username, msgType)
 			}
 		}
 	}
 }
 
 // handlePlayerUpdate processes player position updates from WebSocket clients
-func (h *GameHandler) handlePlayerUpdate(game *schema.Game, userID string, message map[string]interface{}) {
+func (h *GameHandler) handlePlayerUpdate(game *schema.Game, username string, message map[string]interface{}) {
 	game.Mu.Lock()
 	defer game.Mu.Unlock()
 
 	// Find the player
-	player, exists := game.Players[userID]
+	player, exists := game.Players[username]
 	if !exists {
-		log.Printf("Player update from unknown user %s", userID)
+		log.Printf("Player update from unknown user %s", username)
 		return
 	}
-
 	// Don't update eliminated or spectator players
 	if player.IsEliminated || player.IsSpectator {
 		return
@@ -125,16 +127,18 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, userID string, messa
 
 	newPosition := player.Position
 
+	log.Printf("Received position update from user %s: %+v", username, data)
 	// Extract new position coordinates
 	if posX, exists := data["pos_x"]; exists {
 		if x, ok := posX.(float64); ok {
 			// Clamp position to map bounds
 			if x < 0 {
 				x = 0
-			} else if x >= 256 {
-				x = 255
+			} else if x >= 20 {
+				x = 20
 			}
 			newPosition.X = x
+			log.Print("Updated X to ", x)
 		}
 	}
 
@@ -143,8 +147,8 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, userID string, messa
 			// Clamp position to map bounds
 			if y < 0 {
 				y = 0
-			} else if y >= 256 {
-				y = 255
+			} else if y >= 20 {
+				y = 20
 			}
 			newPosition.Y = y
 		}
@@ -155,9 +159,12 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, userID string, messa
 
 	// Update last update time
 	player.LastUpdate = time.Now()
-}
 
-// generateUserID creates a unique user ID
-func generateUserID() string {
-	return fmt.Sprintf("%d_%d", time.Now().Second(), rand.Intn(10000))
+	// Broadcast position update to all clients
+	game.Broadcast <- map[string]interface{}{
+		"type": "game_update",
+		"data": map[string]interface{}{
+			"players": game.Players,
+		},
+	}
 }

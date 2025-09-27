@@ -17,6 +17,7 @@ func GameRouter(r chi.Router) {
 
 	r.Route("/game", func(r chi.Router) {
 		r.Post("/", gameHandler.NewGame)
+		r.Get("/{gameID}/state", gameHandler.GetGameState)
 		r.Route("/{gameID}", func(r chi.Router) {
 			r.Handle("/ws", websocket.Handler(gameHandler.ConnectWebSocket))
 		})

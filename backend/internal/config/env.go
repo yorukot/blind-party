@@ -16,10 +16,12 @@ const (
 
 // EnvConfig holds all environment variables for the application
 type EnvConfig struct {
-	Port    string `env:"PORT" envDefault:"8080"`
-	Debug   bool   `env:"DEBUG" envDefault:"false"`
-	AppEnv  AppEnv `env:"APP_ENV" envDefault:"prod"`
-	AppName string `env:"APP_NAME" envDefault:"stargo"`
+	Port       string `env:"PORT" envDefault:"8080"`
+	Debug      bool   `env:"DEBUG" envDefault:"false"`
+	AppEnv     AppEnv `env:"APP_ENV" envDefault:"prod"`
+	AppName    string `env:"APP_NAME" envDefault:"stargo"`
+	MinPlayers int    `env:"MIN_PLAYERS" envDefault:"4"`
+	MaxPlayers int    `env:"MAX_PLAYERS" envDefault:"16"`
 }
 
 var (

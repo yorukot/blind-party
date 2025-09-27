@@ -19,6 +19,7 @@ func (h *GameHandler) GameLifeCycle(game *schema.Game) {
 
 	// Main game loop
 	for {
+		log.Printf("Game %s main loop tick", game.ID)
 		select {
 		case <-game.StopTicker:
 			log.Printf("Game %s received stop signal", game.ID)
@@ -47,11 +48,42 @@ func (h *GameHandler) handleClientRegister(game *schema.Game, client *schema.Web
 	defer game.Mu.Unlock()
 
 	game.Clients[client.UserID] = client
-	log.Printf("Client %s registered to game %s", client.UserID, game.ID)
+
+	// Determine joined round number
+	joinedRound := 0
+	if game.CurrentRound != nil {
+		joinedRound = game.CurrentRound.Number
+	}
+
+	// Create a new player object for this client
+	player := &schema.Player{
+		ID:                client.UserID,
+		Name:              client.Username,
+		Position:          schema.Position{X: 10.0, Y: 10.0}, // Default center position
+		IsSpectator:       false,
+		IsEliminated:      false,
+		JoinedRound:       joinedRound,
+		LastUpdate:        time.Now(),
+		LastValidPosition: schema.Position{X: 10.0, Y: 10.0},
+		LastMoveTime:      time.Now(),
+		MovementSpeed:     game.Config.BaseMovementSpeed,
+		Stats: schema.PlayerStats{
+			RoundsSurvived: 0,
+			Score:          0,
+			FinalPosition:  0,
+		},
+	}
+
+	// Add player to the game
+	game.Players[client.UserID] = player
+	game.PlayerCount++
+	game.AliveCount++
+
+	log.Printf("Client %s registered to game %s (Player count: %d)", client.UserID, game.ID, game.PlayerCount)
 
 	// Send current game state to newly connected client
 	gameState := h.createGameStateMessage(game)
-	client.Send <- gameState
+	game.Broadcast <- gameState
 }
 
 // handleClientUnregister processes WebSocket client disconnections
@@ -60,9 +92,34 @@ func (h *GameHandler) handleClientUnregister(game *schema.Game, client *schema.W
 	defer game.Mu.Unlock()
 
 	if _, exists := game.Clients[client.UserID]; exists {
+		// Remove client
 		delete(game.Clients, client.UserID)
 		close(client.Send)
-		log.Printf("Client %s unregistered from game %s", client.UserID, game.ID)
+
+		// Remove player if it exists
+		if player, playerExists := game.Players[client.UserID]; playerExists {
+			delete(game.Players, client.UserID)
+			game.PlayerCount--
+			// Only decrement alive count if player wasn't eliminated
+			if !player.IsEliminated {
+				game.AliveCount--
+			}
+		}
+
+		log.Printf("Client %s unregistered from game %s (Player count: %d)", client.UserID, game.ID, game.PlayerCount)
+
+		// Check if no players remain and stop the game
+		if game.PlayerCount == 0 {
+			log.Printf("No players remaining, stopping game %s", game.ID)
+			go func() {
+				game.StopTicker <- true
+			}()
+			return // Don't broadcast since game is stopping
+		}
+
+		// Broadcast updated game state to remaining clients via the broadcast channel
+		updatedGameState := h.createGameStateMessage(game)
+		game.Broadcast <- updatedGameState
 	}
 }
 
@@ -102,23 +159,24 @@ func (h *GameHandler) createGameStateMessage(game *schema.Game) map[string]inter
 
 	// Create a safe game state without channels
 	return map[string]interface{}{
-		"type": "game_state",
+		"type": "game_update",
 		"data": map[string]interface{}{
-			"game_id":      game.ID,
-			"created_at":   game.CreatedAt,
-			"started_at":   game.StartedAt,
-			"ended_at":     game.EndedAt,
-			"phase":        game.Phase,
+			"game_id":       game.ID,
+			"created_at":    game.CreatedAt,
+			"started_at":    game.StartedAt,
+			"ended_at":      game.EndedAt,
+			"phase":         game.Phase,
 			"current_round": game.CurrentRound,
-			"rounds":       game.Rounds,
-			"map":          game.MapArray,
-			"players":      game.PlayersList,
-			"player_count": game.PlayerCount,
-			"alive_count":  game.AliveCount,
-			"config":       game.Config,
+			"rounds":        game.Rounds,
+			"map":           game.MapArray,
+			"players":       game.PlayersList,
+			"player_count":  game.PlayerCount,
+			"alive_count":   game.AliveCount,
+			"config":        game.Config,
 		},
 	}
 }
+
 // +=====================================================+
 // | 				GAME TICK LOGIC						 |
 // +=====================================================+
@@ -136,5 +194,5 @@ func (h *GameHandler) processGameState(game *schema.Game) {
 	case schema.Settlement:
 		h.handleSettlementPhase(game)
 	}
+	game.LastTick = time.Now()
 }
-

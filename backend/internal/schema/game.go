@@ -119,6 +119,7 @@ type MapData [20][20]WoolColor
 type WebSocketClient struct {
 	Conn      *websocket.Conn
 	UserID    string
+	Username  string
 	Token     string
 	Send      chan interface{}
 	Connected time.Time
@@ -151,6 +152,10 @@ type GameConfig struct {
 	LagCompensationMs int     `json:"lag_compensation_ms"` // 100ms
 	PositionUpdateHz  int     `json:"position_update_hz"`  // 10 Hz
 	TimerUpdateHz     int     `json:"timer_update_hz"`     // 20 Hz
+
+	// Map Changes
+	MapChangeRounds    []int `json:"map_change_rounds"`     // Rounds when colors are removed
+	ColorsToRemoveEach int   `json:"colors_to_remove_each"` // Number of colors to remove per change
 }
 
 // TimingRange defines rush duration for specific round ranges
@@ -174,6 +179,7 @@ type Game struct {
 	Rounds       []Round   `json:"rounds"`
 	Map          MapData   `json:"-"`   // Use MapToArray() for JSON
 	MapArray     [][]int   `json:"map"` // Flattened map for JSON
+	Countdown    int       `json:"countdown_seconds,omitempty"`
 
 	// Players
 	Players               map[string]*Player  `json:"-"`
@@ -195,5 +201,6 @@ type Game struct {
 	Mu                    sync.RWMutex
 	Ticker                *time.Ticker
 	StopTicker            chan bool
+	LastTick              time.Time `json:"-"`
 	LastPositionBroadcast time.Time `json:"-"` // Tracks when positions were last broadcast
 }

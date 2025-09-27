@@ -372,6 +372,13 @@ func (h *GameHandler) finishRound(game *schema.Game) {
 	log.Printf("Round %d finished in game %s, %d players remain",
 		round.Number, game.ID, game.AliveCount)
 
+	// Apply map changes if this round triggers them
+	mapChanged, removedColors := h.applyMapChanges(game, round.Number)
+	if mapChanged {
+		// Broadcast map update to all clients
+		h.broadcastMapUpdate(game, round.Number, removedColors)
+	}
+
 	// Check if game should end
 	if game.AliveCount <= 1 || round.Number >= 25 {
 		h.endGame(game)
@@ -675,6 +682,182 @@ func (h *GameHandler) calculateRushDuration(game *schema.Game, roundNumber int) 
 	// If no range matches, use the last range's duration (for rounds beyond the configured ranges)
 	lastRange := game.Config.TimingProgression[len(game.Config.TimingProgression)-1]
 	return lastRange.Duration
+}
+
+// applyMapChanges removes colors from the map at specified rounds
+func (h *GameHandler) applyMapChanges(game *schema.Game, roundNumber int) (bool, []schema.WoolColor) {
+	// Check if this round triggers map changes
+	shouldChange := false
+	for _, changeRound := range game.Config.MapChangeRounds {
+		if roundNumber == changeRound {
+			shouldChange = true
+			break
+		}
+	}
+
+	if !shouldChange {
+		return false, nil
+	}
+
+	// Get currently available colors on the map
+	availableColors := h.getAvailableColors(game)
+
+	// Remove the specified number of colors (but keep at least 2 colors)
+	colorsToRemove := game.Config.ColorsToRemoveEach
+	if len(availableColors) - colorsToRemove < 2 {
+		colorsToRemove = len(availableColors) - 2
+	}
+
+	if colorsToRemove <= 0 {
+		return false, nil
+	}
+
+	// Select colors to remove (prioritize least used colors)
+	colorsToRemoveList := h.selectColorsToRemove(game, availableColors, colorsToRemove)
+
+	// Remove the selected colors and redistribute
+	h.removeColorsFromMap(game, colorsToRemoveList)
+
+	log.Printf("Map updated for game %s: removed %d colors at round %d",
+		game.ID, len(colorsToRemoveList), roundNumber)
+
+	return true, colorsToRemoveList
+}
+
+// getAvailableColors returns all colors currently present on the map
+func (h *GameHandler) getAvailableColors(game *schema.Game) []schema.WoolColor {
+	colorCount := make(map[schema.WoolColor]int)
+
+	// Count occurrences of each color
+	for i := 0; i < game.Config.MapHeight; i++ {
+		for j := 0; j < game.Config.MapWidth; j++ {
+			color := game.Map[i][j]
+			if color != schema.Air {
+				colorCount[color]++
+			}
+		}
+	}
+
+	// Extract available colors
+	availableColors := make([]schema.WoolColor, 0, len(colorCount))
+	for color := range colorCount {
+		availableColors = append(availableColors, color)
+	}
+
+	return availableColors
+}
+
+// selectColorsToRemove chooses which colors to remove (prioritize least used)
+func (h *GameHandler) selectColorsToRemove(game *schema.Game, availableColors []schema.WoolColor, count int) []schema.WoolColor {
+	// Count blocks of each color
+	colorCounts := make(map[schema.WoolColor]int)
+	for _, color := range availableColors {
+		colorCounts[color] = 0
+	}
+
+	for i := 0; i < game.Config.MapHeight; i++ {
+		for j := 0; j < game.Config.MapWidth; j++ {
+			color := game.Map[i][j]
+			if _, exists := colorCounts[color]; exists {
+				colorCounts[color]++
+			}
+		}
+	}
+
+	// Sort colors by count (ascending - remove least used first)
+	type colorCount struct {
+		color schema.WoolColor
+		count int
+	}
+
+	colorList := make([]colorCount, 0, len(colorCounts))
+	for color, count := range colorCounts {
+		colorList = append(colorList, colorCount{color: color, count: count})
+	}
+
+	// Sort by count (least used first)
+	for i := 0; i < len(colorList); i++ {
+		for j := i + 1; j < len(colorList); j++ {
+			if colorList[i].count > colorList[j].count {
+				colorList[i], colorList[j] = colorList[j], colorList[i]
+			}
+		}
+	}
+
+	// Select the least used colors up to the requested count
+	result := make([]schema.WoolColor, 0, count)
+	for i := 0; i < count && i < len(colorList); i++ {
+		result = append(result, colorList[i].color)
+	}
+
+	return result
+}
+
+// removeColorsFromMap removes specified colors and redistributes with remaining colors
+func (h *GameHandler) removeColorsFromMap(game *schema.Game, colorsToRemove []schema.WoolColor) {
+	// Get remaining colors
+	availableColors := h.getAvailableColors(game)
+	remainingColors := make([]schema.WoolColor, 0)
+
+	for _, color := range availableColors {
+		shouldRemove := false
+		for _, removeColor := range colorsToRemove {
+			if color == removeColor {
+				shouldRemove = true
+				break
+			}
+		}
+		if !shouldRemove {
+			remainingColors = append(remainingColors, color)
+		}
+	}
+
+	// Replace removed colors with remaining colors randomly
+	for i := 0; i < game.Config.MapHeight; i++ {
+		for j := 0; j < game.Config.MapWidth; j++ {
+			currentColor := game.Map[i][j]
+
+			// Check if this color should be removed
+			for _, removeColor := range colorsToRemove {
+				if currentColor == removeColor {
+					// Replace with a random remaining color
+					newColor := remainingColors[rand.Intn(len(remainingColors))]
+					game.Map[i][j] = newColor
+					break
+				}
+			}
+		}
+	}
+
+	// Update the JSON-friendly MapArray
+	game.MapArray = make([][]int, game.Config.MapHeight)
+	for i := range game.MapArray {
+		game.MapArray[i] = make([]int, game.Config.MapWidth)
+		for j := range game.MapArray[i] {
+			game.MapArray[i][j] = int(game.Map[i][j])
+		}
+	}
+}
+
+// broadcastMapUpdate sends the updated map to all clients
+func (h *GameHandler) broadcastMapUpdate(game *schema.Game, roundNumber int, removedColors []schema.WoolColor) {
+	// Get current available colors after the change
+	availableColors := h.getAvailableColors(game)
+
+	// Broadcast map update to all clients
+	game.Broadcast <- map[string]interface{}{
+		"type": "map_updated",
+		"data": map[string]interface{}{
+			"round_number":      roundNumber,
+			"map":               game.MapArray,
+			"removed_colors":    removedColors,
+			"available_colors":  availableColors,
+			"timestamp":         time.Now().UnixMilli(),
+		},
+	}
+
+	log.Printf("Broadcasted map update for game %s: removed colors %v, %d colors remain",
+		game.ID, removedColors, len(availableColors))
 }
 
 // broadcastPlayerPositions sends current player positions to all clients at configured frequency
