@@ -1,7 +1,7 @@
 <script lang="ts">
     import { PUBLIC_API_BASE_URL, PUBLIC_WS_BASE_URL } from '$env/static/public';
     import { gameState } from '$lib/api/game-state.svelte.js';
-    import CountdownBar from '$lib/components/game/countdown-bar.svelte';
+    import GameStatusBar from '$lib/components/game/game-status-bar.svelte';
     import CountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
@@ -273,7 +273,70 @@
                 </p>
             </header>
 
-            <CountdownBar duration={90} fillColor="#facc15" />
+            {#if gameState.phase === 'pre-game'}
+                <GameStatusBar
+                    label="Waiting for Players"
+                    displayText="{players.length}/2"
+                    progress={(players.length / 2) * 100}
+                    fillColor="#f59e0b"
+                />
+            {:else if gameState.currentPhase === 'preparation_started'}
+                <GameStatusBar
+                    label="Preparation Phase"
+                    displayText="{Math.ceil(gameState.remainingTime)}s"
+                    progress={(gameState.remainingTime / 5) * 100}
+                    fillColor="#f97316"
+                />
+            {:else if gameState.currentPhase === 'color-call'}
+                <GameStatusBar
+                    label="Color Call Phase"
+                    displayText="{Math.ceil(gameState.remainingTime)}s"
+                    progress={(gameState.remainingTime / 1) * 100}
+                    fillColor="#22c55e"
+                />
+            {:else if gameState.currentPhase === 'rush-phase'}
+                <GameStatusBar
+                    label="Rush Phase"
+                    displayText="{Math.ceil(gameState.remainingTime)}s"
+                    progress={(gameState.remainingTime / 4) * 100}
+                    fillColor="#ef4444"
+                />
+            {:else if gameState.currentPhase === 'elimination-check'}
+                <GameStatusBar
+                    label="Elimination Check"
+                    displayText="Checking..."
+                    progress={100}
+                    fillColor="#8b5cf6"
+                />
+            {:else if gameState.currentPhase === 'round-transition'}
+                <GameStatusBar
+                    label="Round Results"
+                    displayText="Next Round Soon"
+                    progress={100}
+                    fillColor="#06b6d4"
+                />
+            {:else if gameState.phase === 'settlement'}
+                <GameStatusBar
+                    label="Game Ended"
+                    displayText="Final Results"
+                    progress={100}
+                    fillColor="#10b981"
+                />
+            {:else if gameState.phase === 'in-game'}
+                <GameStatusBar
+                    label="Game In Progress"
+                    displayText="Active"
+                    progress={100}
+                    fillColor="#3b82f6"
+                />
+            {:else}
+                <GameStatusBar
+                    label="Game Status"
+                    displayText="Ready"
+                    progress={100}
+                    fillColor="#22c55e"
+                />
+            {/if}
 
             {#if remainingSeconds > 0}
                 <CountdownOverlay {remainingSeconds} />
