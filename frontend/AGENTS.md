@@ -63,6 +63,7 @@ Blind Party is a multiplayer party game where players navigate through various m
 5. Add JSDoc comments for complex components
 6. Always check for existing components to reuse before creating new ones
 7. Design many custom styled components for consistent UI
+8. Follow Svelte's naming convention: component file names should be in kebab-case (e.g., `player-card.svelte`)
 
 ### State Management
 
