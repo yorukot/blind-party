@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	export type Direction = 'up' | 'down' | 'left' | 'right';
 
@@ -24,6 +25,8 @@
 	};
 
 	const pressedKeys = new Set<string>();
+
+	$inspect(activeDirections);
 
 	function getDirectionFromKey(key: string): Direction | undefined {
 		if (!key) {
