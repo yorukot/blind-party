@@ -61,9 +61,6 @@
             class="relative flex flex-col items-center gap-6 rounded-[32px] border-4 px-12 py-10 text-center text-white shadow-[0_18px_60px_rgba(0,0,0,0.4)]"
             style={overlayStyle}
         >
-            <div
-                class="overlay-sheen pointer-events-none absolute -inset-8 rounded-[40px] border-2"
-            ></div>
 
             <span
                 class="font-minecraft text-[0.85rem] tracking-[0.4em] uppercase drop-shadow-[3px_3px_0_rgba(0,0,0,0.4)]"
@@ -91,28 +88,11 @@
 {/if}
 
 <style>
-    .overlay-sheen {
-        animation: overlay-pulse 1.4s ease-in-out infinite;
-        border-color: color-mix(in srgb, var(--overlay-accent) 38%, rgba(255, 255, 255, 0.18));
-        background: radial-gradient(transparent 70%);
-    }
 
     .countdown-number {
         animation: overlay-pop 1s cubic-bezier(0.21, 1.12, 0.59, 1) forwards;
     }
 
-    @keyframes overlay-pulse {
-        0%,
-        100% {
-            opacity: 0.6;
-            transform: scale(0.97);
-        }
-
-        50% {
-            opacity: 0.95;
-            transform: scale(1.01);
-        }
-    }
 
     @keyframes overlay-breathe {
         0%,
