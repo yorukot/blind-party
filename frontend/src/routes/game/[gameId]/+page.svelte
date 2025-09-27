@@ -33,6 +33,7 @@
 
     // Get reactive data from game state
     let mapSize = $derived(gameState.mapSize);
+    let gameMap = $derived(gameState.gameMap);
     let players = $derived(gameState.players);
     let localPlayer = $derived(gameState.localPlayer);
     let connectionState = $derived(gameState.connectionState);
@@ -247,6 +248,7 @@
             <div class="flex flex-col gap-8 lg:flex-row">
                 <GameBoardPanel
                     {mapSize}
+                    {gameMap}
                     players={otherPlayersOnBoard}
                     selfPlayer={selfPlayerOnBoard}
                 />
