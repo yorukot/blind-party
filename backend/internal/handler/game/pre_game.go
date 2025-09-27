@@ -33,20 +33,18 @@ func (h *GameHandler) handlePreGamePhase(game *schema.Game) {
 // startGamePreparation begins the 5-second preparation phase
 func (h *GameHandler) startGamePreparation(game *schema.Game) {
 	log.Printf("Game %s entering preparation phase with %d players", game.ID, game.PlayerCount)
-
-	if game.Countdown <= 5 {
-		game.Countdown = 5 - game.LastTick.Compare(time.Now())
+	if game.Countdown == nil {
+		countdown := float64(5)
+		game.Countdown = &countdown
+		game.LastTick = time.Now()
+	} else {
+		// Subtract elapsed time since last tick
+		elapsed := time.Since(game.LastTick).Seconds()
+		*game.Countdown -= elapsed
+		game.LastTick = time.Now()
 	}
 
-	// Broadcast preparation start
-	game.Broadcast <- map[string]interface{}{
-		"type": "game_update",
-		"data": map[string]interface{}{
-			"countdown_seconds": game.Countdown,
-		},
-	}
-
-	if game.Countdown <= 0 {
+	if game.Countdown == nil || *game.Countdown <= 0 {
 		h.startGame(game)
 		return
 	}
@@ -67,7 +65,7 @@ func (h *GameHandler) startGame(game *schema.Game) {
 
 	// Broadcast game start with full game state
 	game.Broadcast <- map[string]interface{}{
-		"type": "game_update",
+		"event": "game_update",
 		"data": map[string]interface{}{
 			"phase":   game.Phase,
 			"game_id": game.ID,
@@ -76,8 +74,6 @@ func (h *GameHandler) startGame(game *schema.Game) {
 		},
 	}
 
-	// Start the first round
-	h.startNewRound(game)
 }
 
 // assignSpawnPositions assigns random spawn positions to all players on valid colored blocks
@@ -111,7 +107,7 @@ func (h *GameHandler) assignSpawnPositions(game *schema.Game) {
 			positionIndex++
 
 			log.Printf("Player %s (%s) spawned at position (%.1f, %.1f)",
-				player.ID, player.Name, player.Position.X, player.Position.Y)
+				player.Name, player.Name, player.Position.X, player.Position.Y)
 		}
 	}
 }
@@ -130,21 +126,9 @@ func (h *GameHandler) initializeAllPlayerStats(game *schema.Game) {
 		player.Stats = schema.PlayerStats{
 			RoundsSurvived:      0,
 			TotalDistance:       0,
-			Score:               0,
-			SurvivalPoints:      0,
-			EliminationBonus:    0,
-			SpeedBonuses:        0,
-			StreakBonuses:       0,
-			CurrentStreak:       0,
-			LongestStreak:       0,
-			ThreeStreakCount:    0,
-			FiveStreakCount:     0,
-			TenStreakCount:      0,
-			AverageResponseTime: 0,
-			PerfectRounds:       0,
 			FinalPosition:       0,
 		}
 
-		log.Printf("Initialized stats for player %s (%s)", player.ID, player.Name)
+		log.Printf("Initialized stats for player %s (%s)", player.Name, player.Name)
 	}
 }

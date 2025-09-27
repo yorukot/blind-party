@@ -1,7 +1,9 @@
 package game
 
 import (
+	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -82,14 +84,15 @@ func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 		}
 
 		// Handle different message types
-		if msgType, exists := message["type"]; exists {
+		if msgType, exists := message["event"]; exists {
 			switch msgType {
 			case "player_update":
+				log.Printf("Received player update from user %s", username)
 				h.handlePlayerUpdate(game, username, message)
 			case "ping":
 				// Respond to ping with pong
 				client.Send <- map[string]interface{}{
-					"type": "pong",
+					"event": "pong",
 				}
 			default:
 				log.Printf("Unknown message type from user %s: %s", username, msgType)
@@ -102,7 +105,6 @@ func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 func (h *GameHandler) handlePlayerUpdate(game *schema.Game, username string, message map[string]interface{}) {
 	game.Mu.Lock()
 	defer game.Mu.Unlock()
-
 	// Find the player
 	player, exists := game.Players[username]
 	if !exists {
@@ -111,48 +113,67 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, username string, mes
 	}
 	// Don't update eliminated or spectator players
 	if player.IsEliminated || player.IsSpectator {
+		log.Printf("Skipping position update for user %s: player is %s", username,
+			func() string {
+				if player.IsEliminated { return "eliminated" }
+				return "spectator"
+			}())
 		return
 	}
 
 	// Don't allow position updates during elimination phase
 	if game.CurrentRound != nil && game.CurrentRound.Phase == schema.EliminationCheck {
+		log.Printf("Skipping position update for user %s: game is in elimination phase", username)
 		return
 	}
 
 	// Extract position data
-	data, hasData := message["data"].(map[string]interface{})
+	data, hasData := message["player"].(map[string]interface{})
 	if !hasData {
+		log.Printf("Invalid message format from user %s: missing or invalid 'player' field. Message: %+v", username, message)
 		return
 	}
+	log.Printf("Received position data from user %s: %+v", username, data)
 
 	newPosition := player.Position
 
-	log.Printf("Received position update from user %s: %+v", username, data)
 	// Extract new position coordinates
-	if posX, exists := data["pos_x"]; exists {
-		if x, ok := posX.(float64); ok {
+	if posX, exists := data["position_x"]; exists {
+		if x, err := parseFloat(posX); err == nil {
+			originalX := x
 			// Clamp position to map bounds
 			if x < 0 {
 				x = 0
+				log.Printf("Clamped X position for user %s: %.2f -> %.2f (below minimum)", username, originalX, x)
 			} else if x >= 20 {
 				x = 20
+				log.Printf("Clamped X position for user %s: %.2f -> %.2f (above maximum)", username, originalX, x)
 			}
 			newPosition.X = x
-			log.Print("Updated X to ", x)
+			log.Printf("Updated X position for user %s: %.2f", username, x)
+		} else {
+			log.Printf("Invalid X coordinate from user %s: %v (error: %v)", username, posX, err)
 		}
 	}
 
 	if posY, exists := data["pos_y"]; exists {
-		if y, ok := posY.(float64); ok {
+		if y, err := parseFloat(posY); err == nil {
+			originalY := y
 			// Clamp position to map bounds
 			if y < 0 {
 				y = 0
+				log.Printf("Clamped Y position for user %s: %.2f -> %.2f (below minimum)", username, originalY, y)
 			} else if y >= 20 {
 				y = 20
+				log.Printf("Clamped Y position for user %s: %.2f -> %.2f (above maximum)", username, originalY, y)
 			}
 			newPosition.Y = y
+			log.Printf("Updated Y position for user %s: %.2f", username, y)
+		} else {
+			log.Printf("Invalid Y coordinate from user %s: %v (error: %v)", username, posY, err)
 		}
 	}
+	log.Printf("Handling position update for user %s, x: %.1f, y: %.1f", username, newPosition.X, newPosition.Y)
 
 	// Update player position (validation moved to game lifecycle)
 	player.Position = newPosition
@@ -160,11 +181,25 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, username string, mes
 	// Update last update time
 	player.LastUpdate = time.Now()
 
-	// Broadcast position update to all clients
-	game.Broadcast <- map[string]interface{}{
-		"type": "game_update",
-		"data": map[string]interface{}{
-			"players": game.Players,
-		},
+	game.Players[username] = player
+}
+
+// parseFloat attempts to convert various numeric types to float64
+func parseFloat(value interface{}) (float64, error) {
+	switch v := value.(type) {
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case string:
+		return strconv.ParseFloat(v, 64)
+	default:
+		return 0, fmt.Errorf("cannot convert %T to float64", value)
 	}
 }

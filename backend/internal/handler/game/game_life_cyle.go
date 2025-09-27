@@ -47,7 +47,7 @@ func (h *GameHandler) handleClientRegister(game *schema.Game, client *schema.Web
 	game.Mu.Lock()
 	defer game.Mu.Unlock()
 
-	game.Clients[client.UserID] = client
+	game.Clients[client.Username] = client
 
 	// Determine joined round number
 	joinedRound := 0
@@ -57,7 +57,6 @@ func (h *GameHandler) handleClientRegister(game *schema.Game, client *schema.Web
 
 	// Create a new player object for this client
 	player := &schema.Player{
-		ID:                client.UserID,
 		Name:              client.Username,
 		Position:          schema.Position{X: 10.0, Y: 10.0}, // Default center position
 		IsSpectator:       false,
@@ -69,17 +68,16 @@ func (h *GameHandler) handleClientRegister(game *schema.Game, client *schema.Web
 		MovementSpeed:     game.Config.BaseMovementSpeed,
 		Stats: schema.PlayerStats{
 			RoundsSurvived: 0,
-			Score:          0,
 			FinalPosition:  0,
 		},
 	}
 
 	// Add player to the game
-	game.Players[client.UserID] = player
+	game.Players[client.Username] = player
 	game.PlayerCount++
 	game.AliveCount++
 
-	log.Printf("Client %s registered to game %s (Player count: %d)", client.UserID, game.ID, game.PlayerCount)
+	log.Printf("Client %s registered to game %s (Player count: %d)", client.Username, game.ID, game.PlayerCount)
 
 	// Send current game state to newly connected client
 	gameState := h.createGameStateMessage(game)
@@ -91,14 +89,14 @@ func (h *GameHandler) handleClientUnregister(game *schema.Game, client *schema.W
 	game.Mu.Lock()
 	defer game.Mu.Unlock()
 
-	if _, exists := game.Clients[client.UserID]; exists {
+	if _, exists := game.Clients[client.Username]; exists {
 		// Remove client
-		delete(game.Clients, client.UserID)
+		delete(game.Clients, client.Username)
 		close(client.Send)
 
 		// Remove player if it exists
-		if player, playerExists := game.Players[client.UserID]; playerExists {
-			delete(game.Players, client.UserID)
+		if player, playerExists := game.Players[client.Username]; playerExists {
+			delete(game.Players, client.Username)
 			game.PlayerCount--
 			// Only decrement alive count if player wasn't eliminated
 			if !player.IsEliminated {
@@ -106,7 +104,7 @@ func (h *GameHandler) handleClientUnregister(game *schema.Game, client *schema.W
 			}
 		}
 
-		log.Printf("Client %s unregistered from game %s (Player count: %d)", client.UserID, game.ID, game.PlayerCount)
+		log.Printf("Client %s unregistered from game %s (Player count: %d)", client.Username, game.ID, game.PlayerCount)
 
 		// Check if no players remain and stop the game
 		if game.PlayerCount == 0 {
@@ -159,7 +157,7 @@ func (h *GameHandler) createGameStateMessage(game *schema.Game) map[string]inter
 
 	// Create a safe game state without channels
 	return map[string]interface{}{
-		"type": "game_update",
+		"event": "game_update",
 		"data": map[string]interface{}{
 			"game_id":       game.ID,
 			"created_at":    game.CreatedAt,
@@ -167,10 +165,12 @@ func (h *GameHandler) createGameStateMessage(game *schema.Game) map[string]inter
 			"ended_at":      game.EndedAt,
 			"phase":         game.Phase,
 			"current_round": game.CurrentRound,
-			"rounds":        game.Rounds,
 			"map":           game.MapArray,
+			"round":         game.CurrentRound,
+			"round_number":  game.RoundNumber,
 			"players":       game.PlayersList,
 			"player_count":  game.PlayerCount,
+			"countdown_seconds":     game.Countdown,
 			"alive_count":   game.AliveCount,
 			"config":        game.Config,
 		},
@@ -185,14 +185,14 @@ func (h *GameHandler) createGameStateMessage(game *schema.Game) map[string]inter
 func (h *GameHandler) processGameState(game *schema.Game) {
 	game.Mu.Lock()
 	defer game.Mu.Unlock()
-
 	switch game.Phase {
 	case schema.PreGame:
 		h.handlePreGamePhase(game)
 	case schema.InGame:
 		h.handleInGamePhase(game)
 	case schema.Settlement:
-		h.handleSettlementPhase(game)
+		// h.handleSettlementPhase(game)
 	}
 	game.LastTick = time.Now()
+	game.Broadcast <- h.createGameStateMessage(game)
 }

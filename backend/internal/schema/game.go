@@ -44,9 +44,7 @@ type RoundPhase string
 
 const (
 	ColorCall        RoundPhase = "color-call"
-	RushPhase        RoundPhase = "rush-phase"
 	EliminationCheck RoundPhase = "elimination-check"
-	RoundTransition  RoundPhase = "round-transition"
 )
 
 // Position represents x,y coordinates
@@ -57,7 +55,6 @@ type Position struct {
 
 // Player represents a player in the game
 type Player struct {
-	ID           string    `json:"user_id"`
 	Name         string    `json:"name"`
 	Position     Position  `json:"position"` // For JSON marshaling
 	IsSpectator  bool      `json:"is_spectator"`
@@ -80,36 +77,16 @@ type PlayerStats struct {
 	TotalDistance  float64    `json:"total_distance"`
 	EliminatedAt   *time.Time `json:"eliminated_at,omitempty"`
 	FinalPosition  int        `json:"final_position"`
-
-	// Scoring System
-	Score            int `json:"score"`
-	SurvivalPoints   int `json:"survival_points"`   // 10 points per round survived
-	EliminationBonus int `json:"elimination_bonus"` // 5 × (total players - placement)
-	SpeedBonuses     int `json:"speed_bonuses"`     // +2 for >1s remaining, +50 for >2s
-	StreakBonuses    int `json:"streak_bonuses"`    // 3, 5, 10 round streaks
-
-	// Streak Tracking
-	CurrentStreak    int `json:"current_streak"`
-	LongestStreak    int `json:"longest_streak"`
-	ThreeStreakCount int `json:"three_streak_count"`
-	FiveStreakCount  int `json:"five_streak_count"`
-	TenStreakCount   int `json:"ten_streak_count"`
-
-	// Performance Metrics
-	AverageResponseTime float64 `json:"average_response_time"` // For tiebreaker
-	PerfectRounds       int     `json:"perfect_rounds"`        // Reached with >2s remaining
 }
 
 // Round represents a single round in the game
 type Round struct {
 	Number          int        `json:"round_number"`
 	Phase           RoundPhase `json:"phase"`
-	CountdownTime   int        `json:"countdown_time"` // in seconds
 	StartTime       time.Time  `json:"start_time"`
 	EndTime         *time.Time `json:"end_time,omitempty"`
 	ColorToShow     WoolColor  `json:"color_to_show"`
 	RushDuration    float64    `json:"rush_duration"` // Variable timing by round
-	EliminatedCount int        `json:"eliminated_count"`
 }
 
 // MapData represents the 20x20 game map
@@ -118,7 +95,6 @@ type MapData [20][20]WoolColor
 // WebSocketClient represents a connected WebSocket client
 type WebSocketClient struct {
 	Conn      *websocket.Conn
-	UserID    string
 	Username  string
 	Token     string
 	Send      chan interface{}
@@ -176,10 +152,10 @@ type Game struct {
 	// Game State
 	Phase        GamePhase `json:"phase"`
 	CurrentRound *Round    `json:"current_round,omitempty"`
-	Rounds       []Round   `json:"rounds"`
+	RoundNumber  int        `json:"round_number"`
 	Map          MapData   `json:"-"`   // Use MapToArray() for JSON
 	MapArray     [][]int   `json:"map"` // Flattened map for JSON
-	Countdown    int       `json:"countdown_seconds,omitempty"`
+	Countdown    *float64      `json:"countdown_seconds,omitempty"`
 
 	// Players
 	Players               map[string]*Player  `json:"-"`

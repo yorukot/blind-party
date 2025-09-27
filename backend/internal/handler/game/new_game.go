@@ -43,6 +43,10 @@ func (h *GameHandler) NewGame(w http.ResponseWriter, r *http.Request) {
 		Register:   make(chan *schema.WebSocketClient, 256),
 		Unregister: make(chan *schema.WebSocketClient, 256),
 
+		// Round
+		CurrentRound: nil,
+		RoundNumber:  0,
+
 		// Configuration
 		Config: schema.GameConfig{
 			MapWidth:            20,
@@ -66,9 +70,6 @@ func (h *GameHandler) NewGame(w http.ResponseWriter, r *http.Request) {
 			PositionUpdateHz:  10,
 			TimerUpdateHz:     20,
 		},
-
-		// Initialize rounds slice
-		Rounds: make([]schema.Round, 0),
 
 		// Generate random map data
 		Map: generateRandomMap(),
