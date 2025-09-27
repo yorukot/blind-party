@@ -6,6 +6,7 @@
     import GameStatusBar from '$lib/components/game/game-status-bar.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster from '$lib/components/game/player-roster.svelte';
+    import TargetBlockIcon from '$lib/components/game/target-block-icon.svelte';
     import JoinForm from '$lib/components/ui/join-form.svelte';
     import { playerState } from '$lib/player-state.svelte.js';
     import type { GameStateResponse } from '$lib/types/game';
@@ -36,7 +37,8 @@
         phase: 'pre-game',
         players: [],
         map: [],
-        countdown_seconds: null
+        countdown_seconds: null,
+        target_color: 0
     });
 
     // Derived values for UI
@@ -88,11 +90,12 @@
             // Sync player position with server
             const selfPlayerSummary = updatedGameState.players
                 .map(gamePlayerToPlayerSummary)
-                .find(p => p.name === username);
+                .find((p) => p.name === username);
 
-            const selfPlayerOnBoard = selfPlayerSummary && selfPlayerSummary.position
-                ? (selfPlayerSummary as PlayerOnBoard)
-                : null;
+            const selfPlayerOnBoard =
+                selfPlayerSummary && selfPlayerSummary.position
+                    ? (selfPlayerSummary as PlayerOnBoard)
+                    : null;
 
             if (selfPlayerOnBoard) {
                 playerState.syncWithServer(selfPlayerOnBoard);
@@ -211,12 +214,17 @@
             {/if}
 
             <div class="flex flex-col gap-8 lg:flex-row">
-                <GameBoardPanel
-                    {mapSize}
-                    {gameMap}
-                    players={otherPlayersOnBoard}
-                    selfPlayer={selfPlayerOnBoard}
-                />
+                <div class="relative">
+                    <GameBoardPanel
+                        {mapSize}
+                        {gameMap}
+                        players={otherPlayersOnBoard}
+                        selfPlayer={selfPlayerOnBoard}
+                    />
+                    {#if gameState.phase === 'in-game'}
+                        <TargetBlockIcon targetBlock={gameState.target_color} />
+                    {/if}
+                </div>
                 <!-- Show movement controls between board and roster on mobile -->
                 <div class="lg:hidden">
                     <PlayerMovementControls />
