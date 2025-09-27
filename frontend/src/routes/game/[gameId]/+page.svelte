@@ -38,6 +38,7 @@
     let localPlayer = $derived(gameState.localPlayer);
     let connectionState = $derived(gameState.connectionState);
 
+
     // Join game function
     async function joinGame() {
         if (!username.trim()) return;
@@ -73,7 +74,14 @@
         }
     });
 
-    let selfPlayerOnBoard = $derived(localPlayer);
+    let selfPlayerOnBoard = $derived.by(() => {
+        const player = playerState.localPlayer;
+        if (!player) return null;
+        return {
+            ...player,
+            position: playerState.localPosition
+        };
+    });
     let selfPlayerSummary = $derived(localPlayer);
 
     let otherPlayersOnBoard = $derived.by(() =>
@@ -104,8 +112,7 @@
     }
 
     function updateLocalPlayer(deltaSeconds: number) {
-        const current = playerState.localPlayer;
-        if (!current) {
+        if (!playerState.localPlayerId) {
             return;
         }
 
@@ -115,6 +122,7 @@
         const velocity = playerState.localVelocity;
         let nextVx = velocity.x;
         let nextVy = velocity.y;
+        const currentPosition = playerState.localPosition;
 
         if (hasInput) {
             let dx = 0;
@@ -157,8 +165,8 @@
             nextVy *= scale;
         }
 
-        let nextX = current.position.x + nextVx * deltaSeconds;
-        let nextY = current.position.y + nextVy * deltaSeconds;
+        let nextX = currentPosition.x + nextVx * deltaSeconds;
+        let nextY = currentPosition.y + nextVy * deltaSeconds;
 
         const clampedX = clampToBoard(nextX);
         const clampedY = clampToBoard(nextY);

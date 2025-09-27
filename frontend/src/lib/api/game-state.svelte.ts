@@ -276,6 +276,7 @@ class GameState {
                 round_number: number;
                 timestamp: number;
             }) => {
+                console.log('Received position updates from server:', data.players.length, 'players');
                 data.players.forEach(
                     (playerUpdate: {
                         user_id: string;
@@ -284,6 +285,9 @@ class GameState {
                         pos_y: number;
                         is_spectator: boolean;
                     }) => {
+                        if (this.localPlayerId === playerUpdate.user_id) {
+                            console.log('Server position update for local player:', { pos_x: playerUpdate.pos_x, pos_y: playerUpdate.pos_y });
+                        }
                         this.updatePlayerPosition_Internal(
                             playerUpdate.user_id,
                             playerUpdate.pos_x,
@@ -345,7 +349,7 @@ class GameState {
         this.currentRound = gameData.current_round ?? null;
 
         // Convert API players to frontend format
-        this.players = gameData.players.map(this.convertAPIPlayerToSummary);
+        this.players = gameData.players.map((player) => this.convertAPIPlayerToSummary(player));
 
         // Find and set local player
         if (this.username) {
@@ -416,7 +420,7 @@ class GameState {
     /**
      * Update current round information.
      */
-    private updateCurrentRound(data: any): void {
+    private updateCurrentRound(data: { round_number: number; [key: string]: unknown }): void {
         if (this.currentRound) {
             this.currentRound = {
                 ...this.currentRound,
