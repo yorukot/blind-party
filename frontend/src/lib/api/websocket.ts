@@ -186,19 +186,38 @@ export class WebSocketGameClient {
 
 			// Wait for connection to open or fail
 			await new Promise<void>((resolve, reject) => {
-				const timeout = setTimeout(() => {
+				const ws = this.ws;
+				if (!ws) {
+					reject(new Error('Failed to initialise WebSocket'));
+					return;
+				}
+				const socket = ws;
+
+				let timeout = 0;
+
+				function cleanup() {
+					window.clearTimeout(timeout);
+					socket.removeEventListener('open', handleOpen);
+					socket.removeEventListener('error', handleError);
+				}
+
+				function handleOpen() {
+					cleanup();
+					resolve();
+				}
+
+				function handleError() {
+					cleanup();
+					reject(new Error('WebSocket connection failed'));
+				}
+
+				timeout = window.setTimeout(() => {
+					cleanup();
 					reject(new Error('Connection timeout'));
 				}, 10000);
 
-				this.ws!.onopen = () => {
-					clearTimeout(timeout);
-					resolve();
-				};
-
-				this.ws!.onerror = () => {
-					clearTimeout(timeout);
-					reject(new Error('WebSocket connection failed'));
-				};
+				socket.addEventListener('open', handleOpen, { once: true });
+				socket.addEventListener('error', handleError, { once: true });
 			});
 
 		} catch (error) {
