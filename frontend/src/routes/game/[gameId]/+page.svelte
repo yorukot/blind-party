@@ -1,9 +1,9 @@
 <script lang="ts">
+    import RoundCountdownBar from '$lib/components/game/countdown-bar.svelte';
+    import RoundCountdownOverlay from '$lib/components/game/countdown-overlay.svelte';
     import GameBoardPanel from '$lib/components/game/game-board-panel.svelte';
     import PlayerMovementControls from '$lib/components/game/player-movement-controls.svelte';
     import PlayerRoster, { type PlayerSummary } from '$lib/components/game/player-roster.svelte';
-    import RoundCountdownBar from '$lib/components/game/round-countdown-bar.svelte';
-    import RoundCountdownOverlay from '$lib/components/game/round-countdown-overlay.svelte';
     import { onMount } from 'svelte';
 
     interface Props {
