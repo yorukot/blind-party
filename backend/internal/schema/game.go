@@ -43,8 +43,10 @@ const (
 type RoundPhase string
 
 const (
-	CountingDown RoundPhase = "counting-down"
-	Eliminating  RoundPhase = "eliminating"
+	ColorCall        RoundPhase = "color-call"
+	RushPhase        RoundPhase = "rush-phase"
+	EliminationCheck RoundPhase = "elimination-check"
+	RoundTransition  RoundPhase = "round-transition"
 )
 
 
@@ -111,8 +113,8 @@ type Round struct {
 	EliminatedCount int        `json:"eliminated_count"`
 }
 
-// MapData represents the 20x15 game map (width x height)
-type MapData [15][20]WoolColor
+// MapData represents the 256x256 game map
+type MapData [256][256]WoolColor
 
 // WebSocketClient represents a connected WebSocket client
 type WebSocketClient struct {
@@ -125,8 +127,8 @@ type WebSocketClient struct {
 
 // GameConfig holds configuration for the game
 type GameConfig struct {
-	MapWidth            int   `json:"map_width"`             // 20
-	MapHeight           int   `json:"map_height"`            // 15
+	MapWidth            int   `json:"map_width"`             // 256
+	MapHeight           int   `json:"map_height"`            // 256
 	CountdownSequence   []int `json:"countdown_sequence"`    // [30, 25, 20, 15, 10, 8, 6, 4, 3, 2]
 	SpectatorOnlyRounds int   `json:"spectator_only_rounds"` // Last 2 rounds
 

@@ -12,7 +12,6 @@ import (
 	"github.com/yorukot/blind-party/internal/schema"
 )
 
-
 // ConnectWebSocket handles WebSocket connections for a specific game
 func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 	defer ws.Close()
@@ -62,16 +61,10 @@ func (h *GameHandler) ConnectWebSocket(ws *websocket.Conn) {
 	// Start goroutine to handle sending messages to client
 	go func() {
 		defer ws.Close()
-		for {
-			select {
-			case message, ok := <-client.Send:
-				if !ok {
-					return
-				}
-				if err := websocket.JSON.Send(ws, message); err != nil {
-					log.Printf("Error sending message to client %s: %v", userID, err)
-					return
-				}
+		for message := range client.Send {
+			if err := websocket.JSON.Send(ws, message); err != nil {
+				log.Printf("Error sending message to client %s: %v", userID, err)
+				return
 			}
 		}
 	}()
@@ -120,7 +113,7 @@ func (h *GameHandler) handlePlayerUpdate(game *schema.Game, userID string, messa
 	}
 
 	// Don't allow position updates during elimination phase
-	if game.CurrentRound != nil && game.CurrentRound.Phase == schema.Eliminating {
+	if game.CurrentRound != nil && game.CurrentRound.Phase == schema.EliminationCheck {
 		return
 	}
 
