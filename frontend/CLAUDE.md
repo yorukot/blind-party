@@ -21,26 +21,26 @@ Blind Party is a multiplayer party game where players navigate through various m
 
 ```svelte
 <script lang="ts">
-	// Use $state for reactive variables
-	let count = $state(0);
+    // Use $state for reactive variables
+    let count = $state(0);
 
-	// Use $props for component properties
-	let { title, required, optional = 'default' } = $props();
+    // Use $props for component properties
+    let { title, required, optional = 'default' } = $props();
 
-	// Use $derived for computed values (expressions only)
-	// For functions, use $derived.by(() => {})
-	let doubled = $derived(count * 2);
+    // Use $derived for computed values (expressions only)
+    // For functions, use $derived.by(() => {})
+    let doubled = $derived(count * 2);
 
-	// Use $effect for side effects
-	$effect(() => {
-		console.log(`Count is now: ${count}`);
-	});
+    // Use $effect for side effects
+    $effect(() => {
+        console.log(`Count is now: ${count}`);
+    });
 </script>
 
 <div class="component">
-	<h1>{title}</h1>
-	<p>Count: {count}</p>
-	<button onclick={() => count++}>Increment</button>
+    <h1>{title}</h1>
+    <p>Count: {count}</p>
+    <button onclick={() => count++}>Increment</button>
 </div>
 ```
 
@@ -84,37 +84,37 @@ Blind Party is a multiplayer party game where players navigate through various m
 
 ```svelte
 <script lang="ts">
-	// Props with proper typing
-	interface Props {
-		players: Player[];
-		gameState: GameState;
-		onPlayerAction?: (action: PlayerAction) => void;
-	}
+    // Props with proper typing
+    interface Props {
+        players: Player[];
+        gameState: GameState;
+        onPlayerAction?: (action: PlayerAction) => void;
+    }
 
-	let { players, gameState, onPlayerAction }: Props = $props();
+    let { players, gameState, onPlayerAction }: Props = $props();
 
-	// Local reactive state
-	let selectedPlayer = $state<Player | null>(null);
+    // Local reactive state
+    let selectedPlayer = $state<Player | null>(null);
 
-	// Derived values
-	let alivePlayers = $derived(players.filter((p) => p.isAlive));
+    // Derived values
+    let alivePlayers = $derived(players.filter((p) => p.isAlive));
 
-	// Effects for side effects
-	$effect(() => {
-		if (gameState === 'ended') {
-			// Handle game end
-		}
-	});
+    // Effects for side effects
+    $effect(() => {
+        if (gameState === 'ended') {
+            // Handle game end
+        }
+    });
 </script>
 
 <div class="game-component">
-	{#each alivePlayers as player (player.id)}
-		<PlayerCard
-			{player}
-			selected={selectedPlayer?.id === player.id}
-			onclick={() => (selectedPlayer = player)}
-		/>
-	{/each}
+    {#each alivePlayers as player (player.id)}
+        <PlayerCard
+            {player}
+            selected={selectedPlayer?.id === player.id}
+            onclick={() => (selectedPlayer = player)}
+        />
+    {/each}
 </div>
 ```
 
@@ -138,25 +138,25 @@ Blind Party is a multiplayer party game where players navigate through various m
 
 ```svelte
 <script lang="ts">
-	let isLoading = $state(false);
-	let data = $state(null);
+    let isLoading = $state(false);
+    let data = $state(null);
 
-	async function fetchData() {
-		isLoading = true;
-		try {
-			data = await api.fetchGameData();
-		} finally {
-			isLoading = false;
-		}
-	}
+    async function fetchData() {
+        isLoading = true;
+        try {
+            data = await api.fetchGameData();
+        } finally {
+            isLoading = false;
+        }
+    }
 </script>
 
 {#if isLoading}
-	<LoadingSpinner />
+    <LoadingSpinner />
 {:else if data}
-	<GameContent {data} />
+    <GameContent {data} />
 {:else}
-	<ErrorMessage />
+    <ErrorMessage />
 {/if}
 ```
 
@@ -164,20 +164,20 @@ Blind Party is a multiplayer party game where players navigate through various m
 
 ```svelte
 <script lang="ts">
-	let { onGameEvent } = $props();
+    let { onGameEvent } = $props();
 
-	function handlePlayerMove(direction: Direction) {
-		onGameEvent?.({
-			type: 'player_move',
-			direction,
-			timestamp: Date.now()
-		});
-	}
+    function handlePlayerMove(direction: Direction) {
+        onGameEvent?.({
+            type: 'player_move',
+            direction,
+            timestamp: Date.now()
+        });
+    }
 </script>
 
 <div class="controls">
-	<button onclick={() => handlePlayerMove('up')}>�</button>
-	<button onclick={() => handlePlayerMove('down')}>�</button>
+    <button onclick={() => handlePlayerMove('up')}>�</button>
+    <button onclick={() => handlePlayerMove('down')}>�</button>
 </div>
 ```
 
