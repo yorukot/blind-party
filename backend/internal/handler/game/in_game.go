@@ -206,8 +206,9 @@ func (h *GameHandler) handleEliminationCheckPhase(game *schema.Game) {
 
 		// Convert player position to map coordinates
 		// Player positions are 1-based, map is 0-based
-		x := int(player.Position.X)
-		y := int(player.Position.Y)
+		// Add 0.5 adjustment for proper block center alignment
+		x := int(player.Position.X + 0.5)
+		y := int(player.Position.Y + 0.5)
 
 		// Bounds checking
 		if x < 0 || x >= game.Config.MapWidth || y < 0 || y >= game.Config.MapHeight {
@@ -237,8 +238,9 @@ func (h *GameHandler) handleEliminationCheckPhase(game *schema.Game) {
 			targetName = colorNames[game.CurrentRound.ColorToShow]
 		}
 
-		log.Printf("Player %s at position (%.2f, %.2f) -> map[%d][%d] = %s(%d), target: %s(%d)",
-			player.Name, player.Position.X, player.Position.Y, y, x, blockName, blockUnder, targetName, game.CurrentRound.ColorToShow)
+		log.Printf("Player %s at position (%.2f, %.2f) -> adjusted (%.2f, %.2f) -> map[%d][%d] = %s(%d), target: %s(%d)",
+			player.Name, player.Position.X, player.Position.Y,
+			player.Position.X+0.5, player.Position.Y+0.5, y, x, blockName, blockUnder, targetName, game.CurrentRound.ColorToShow)
 
 		if blockUnder == schema.Air || blockUnder != game.CurrentRound.ColorToShow {
 			h.eliminatePlayer(game, player)
