@@ -38,7 +38,11 @@
     let otherPlayersSorted = $derived.by(() =>
         players
             .filter((player) => player.id !== selfPlayerId)
-            .toSorted((a, b) => statusOrder[resolveStatus(a)] - statusOrder[resolveStatus(b)])
+            .toSorted((a, b) => {
+                const statusDiff = statusOrder[resolveStatus(a)] - statusOrder[resolveStatus(b)];
+                if (statusDiff !== 0) return statusDiff;
+                return a.name.localeCompare(b.name);
+            })
     );
 
     let sortedPlayers = $derived.by(() =>
@@ -76,11 +80,7 @@
             {@const playerStatus = resolveStatus(player)}
             <div animate:flip={{ duration: 300, easing: (t) => t * (2 - t) }}>
                 <!-- Separator between active and inactive players -->
-                {#if index > 0 &&
-                    resolveStatus(sortedPlayers[index - 1]) === 'ingame' &&
-                    playerStatus !== 'ingame' &&
-                    activePlayers > 0 &&
-                    inactivePlayers > 0}
+                {#if index > 0 && resolveStatus(sortedPlayers[index - 1]) === 'ingame' && playerStatus !== 'ingame' && activePlayers > 0 && inactivePlayers > 0}
                     <div
                         class="mb-3 h-px bg-gradient-to-r from-transparent via-slate-600/50 to-transparent"
                         transition:slide={{ duration: 300, axis: 'y' }}
