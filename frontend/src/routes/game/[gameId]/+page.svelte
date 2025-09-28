@@ -188,8 +188,8 @@
             {#if gameState.phase === 'pre-game'}
                 <GameStatusBar
                     label="Waiting for Players"
-                    displayText="{players.length}/2"
-                    progress={(players.length / 2) * 100}
+                    displayText="{players.length}/4"
+                    progress={(players.length / 4) * 100}
                     fillColor="#f59e0b"
                 />
             {:else if gameState.phase === 'in-game'}

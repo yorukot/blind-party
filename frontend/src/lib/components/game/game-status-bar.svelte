@@ -7,13 +7,7 @@
         borderColor?: string;
     }
 
-    let {
-        label,
-        displayText,
-        progress,
-        fillColor = '#22c55e',
-        borderColor
-    }: Props = $props();
+    let { label, displayText, progress, fillColor = '#22c55e', borderColor }: Props = $props();
 
     // Clamp progress between 0 and 100
     let clampedProgress = $derived(Math.max(0, Math.min(100, progress)));
@@ -40,7 +34,6 @@
         'color: color-mix(in srgb, var(--countdown-bar-fill) 94%, white 6%); ' +
             'text-shadow: 2px 2px 0 rgba(0,0,0,0.7);'
     );
-
 </script>
 
 <section

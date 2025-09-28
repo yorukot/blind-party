@@ -104,7 +104,9 @@ class PlayerState {
         if (this.activeDirections.has('down')) targetVelocity.y += 1;
 
         // Normalize diagonal movement
-        const magnitude = Math.sqrt(targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y);
+        const magnitude = Math.sqrt(
+            targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y
+        );
         if (magnitude > 0) {
             targetVelocity.x = (targetVelocity.x / magnitude) * this.MAX_SPEED;
             targetVelocity.y = (targetVelocity.y / magnitude) * this.MAX_SPEED;
@@ -131,9 +133,10 @@ class PlayerState {
         this.maybeSendPositionUpdate();
 
         // Continue loop if there's movement or velocity
-        const isMoving = this.activeDirections.size > 0 ||
-                        Math.abs(this.velocity.x) > 0.001 ||
-                        Math.abs(this.velocity.y) > 0.001;
+        const isMoving =
+            this.activeDirections.size > 0 ||
+            Math.abs(this.velocity.x) > 0.001 ||
+            Math.abs(this.velocity.y) > 0.001;
 
         if (isMoving) {
             this.animationFrameId = requestAnimationFrame(this.updateMovement);
@@ -154,10 +157,12 @@ class PlayerState {
         }
 
         // Check if position changed significantly
-        const distance = Math.abs(this.position.x - this.lastPositionSent.x) +
-                        Math.abs(this.position.y - this.lastPositionSent.y);
+        const distance =
+            Math.abs(this.position.x - this.lastPositionSent.x) +
+            Math.abs(this.position.y - this.lastPositionSent.y);
 
-        if (distance > 0.1) { // Send if moved more than 0.1 units
+        if (distance > 0.1) {
+            // Send if moved more than 0.1 units
             this.sendPositionUpdateNow();
         }
     }
@@ -235,10 +240,12 @@ class PlayerState {
 
         // Check if server position differs significantly from what we last synced
         // This handles cases where the server may have corrected our position
-        const distance = Math.abs(player.position.x - this.lastSyncedPosition.x) +
-                        Math.abs(player.position.y - this.lastSyncedPosition.y);
+        const distance =
+            Math.abs(player.position.x - this.lastSyncedPosition.x) +
+            Math.abs(player.position.y - this.lastSyncedPosition.y);
 
-        if (distance > 2) { // Only sync if position differs by more than 2 units
+        if (distance > 2) {
+            // Only sync if position differs by more than 2 units
             this.position = { x: player.position.x, y: player.position.y };
             this.lastSyncedPosition = { x: player.position.x, y: player.position.y };
         }

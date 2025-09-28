@@ -18,7 +18,7 @@
     let { mapSize, gameMap = [], tileSize = 32, players = [], selfPlayer = null }: Props = $props();
 
     // Use centralized block texture names to dynamically import textures
-    const textureUrls = BLOCK_TEXTURE_NAMES.map(name => {
+    const textureUrls = BLOCK_TEXTURE_NAMES.map((name) => {
         const modules = import.meta.glob('$lib/assets/blocks/*.png', { as: 'url', eager: true });
         const path = `/src/lib/assets/blocks/${name}.png`;
         return modules[path] as string;
