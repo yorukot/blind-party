@@ -1,25 +1,28 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import type { PlayerOnBoard } from '$lib/types/player';
+    import { BLOCK_TEXTURE_NAMES } from '$lib/constants/block-textures';
 
     /**
      * Canvas-based renderer for the Blind Party map.
-     * Generates a random n x n block layout using the provided block textures.
+     * Displays the game map data.
      */
     interface Props {
         mapSize: number;
+        gameMap?: number[][];
         tileSize?: number;
+        players?: PlayerOnBoard[];
+        selfPlayer?: PlayerOnBoard | null;
     }
 
-    let { mapSize, tileSize = 32 }: Props = $props();
+    let { mapSize, gameMap = [], tileSize = 32, players = [], selfPlayer = null }: Props = $props();
 
-    const textureModules = import.meta.glob('$lib/assets/blocks/*.png', {
-        as: 'url',
-        eager: true
-    });
-
-    const textureUrls = Object.entries(textureModules)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([, url]) => url as string);
+    // Use centralized block texture names to dynamically import textures
+    const textureUrls = BLOCK_TEXTURE_NAMES.map(name => {
+        const modules = import.meta.glob('$lib/assets/blocks/*.png', { as: 'url', eager: true });
+        const path = `/src/lib/assets/blocks/${name}.png`;
+        return modules[path] as string;
+    }).filter(Boolean);
 
     let normalizedMapSize = $derived.by(() => Math.max(1, Math.floor(mapSize ?? 0)));
     let safeTileSize = $derived.by(() => Math.max(8, Math.floor(tileSize ?? 0) || 32));
@@ -31,15 +34,83 @@
     let mapGrid = $state<number[][]>([]);
     let blockImages: HTMLImageElement[] = [];
 
-    function generateMap(size: number) {
-        const textureCount = textureUrls.length || 1;
-        return Array.from({ length: size }, () =>
-            Array.from({ length: size }, () => Math.floor(Math.random() * textureCount))
-        );
-    }
+    const clampToBoard = (value: number, size: number) => Math.min(Math.max(value, 0), size - 1);
+
+    const mapPlayerToToken = (player: PlayerOnBoard, isSelf = false) => {
+        const x = clampToBoard(player.position.x, normalizedMapSize);
+        const y = clampToBoard(player.position.y, normalizedMapSize);
+
+        return {
+            id: player.id,
+            name: player.name,
+            status: player.status,
+            accent: player.accent,
+            x,
+            y,
+            left: (x + 0.5) * safeTileSize,
+            top: (y + 0.5) * safeTileSize,
+            isSelf
+        };
+    };
+
+    let otherPlayerTokens = $derived(
+        players
+            .filter((player) => player.status !== 'eliminated')
+            .map((player) => mapPlayerToToken(player))
+    );
+
+    let selfPlayerToken = $derived.by(() => {
+        if (!selfPlayer || selfPlayer.status === 'eliminated') {
+            return null;
+        }
+        return mapPlayerToToken(selfPlayer, true);
+    });
 
     $effect(() => {
-        mapGrid = generateMap(normalizedMapSize);
+        if (!import.meta.env.DEV) {
+            return;
+        }
+
+        console.debug('[GameBoard] tokens derived', {
+            otherPlayers: otherPlayerTokens.map((token) => ({
+                id: token.id,
+                x: token.x,
+                y: token.y
+            })),
+            self: selfPlayerToken
+                ? {
+                      id: selfPlayerToken.id,
+                      x: selfPlayerToken.x,
+                      y: selfPlayerToken.y
+                  }
+                : null
+        });
+    });
+
+    let playerDiameter = $derived(
+        Math.min(safeTileSize, Math.max(16, Math.round(safeTileSize * 0.85)))
+    );
+
+    const getPlayerClasses = (status: PlayerOnBoard['status'], isSelf: boolean) => {
+        if (isSelf) {
+            return 'ring-4 ring-amber-300/90 ring-offset-2 ring-offset-black';
+        }
+
+        if (status === 'spectating') {
+            return 'opacity-80';
+        }
+
+        return '';
+    };
+
+    $effect(() => {
+        // Use provided map data
+        if (gameMap && gameMap.length > 0) {
+            mapGrid = gameMap;
+        } else {
+            // Clear map if no data is available
+            mapGrid = [];
+        }
     });
 
     function createImage(url: string) {
@@ -128,13 +199,54 @@
 </script>
 
 <div class="relative inline-block rounded-lg border-4 border-black bg-slate-900 p-2 shadow-xl">
-    <canvas
-        bind:this={canvas}
-        class="block-map h-auto w-full"
-        width={scaledCanvasSize}
-        height={scaledCanvasSize}
-        style={`width: ${cssSize}px; height: ${cssSize}px;`}
-    ></canvas>
+    <div class="relative">
+        <canvas
+            bind:this={canvas}
+            class="block-map h-auto w-full"
+            width={scaledCanvasSize}
+            height={scaledCanvasSize}
+            style={`width: ${cssSize}px; height: ${cssSize}px;`}
+        ></canvas>
+
+        <div
+            class="player-layer pointer-events-none absolute top-0 left-0"
+            style={`width: ${cssSize}px; height: ${cssSize}px;`}
+        >
+            {#if selfPlayerToken}
+                <div
+                    class={`player-token absolute flex items-center justify-center rounded-full border-2 border-black bg-gradient-to-br ${selfPlayerToken.accent} text-white shadow-[3px_3px_0_rgba(0,0,0,0.6)] transition-transform duration-150 ease-out ${getPlayerClasses(
+                        selfPlayerToken.status,
+                        true
+                    )}`}
+                    style={`width: ${playerDiameter}px; height: ${playerDiameter}px; left: ${selfPlayerToken.left}px; top: ${selfPlayerToken.top}px; transform: translate(-50%, -50%);`}
+                    aria-label={`${selfPlayerToken.name} (You)`}
+                >
+                    <span
+                        class="font-minecraft text-xs tracking-widest drop-shadow-[1px_1px_0_rgba(0,0,0,0.65)]"
+                    >
+                        {selfPlayerToken.name.slice(0, 1).toUpperCase()}
+                    </span>
+                </div>
+            {/if}
+
+            {#each otherPlayerTokens as player (player.id)}
+                <div
+                    class={`player-token absolute flex items-center justify-center rounded-full border-2 border-black bg-gradient-to-br ${player.accent} text-white shadow-[3px_3px_0_rgba(0,0,0,0.6)] transition-transform duration-150 ease-out ${getPlayerClasses(
+                        player.status,
+                        false
+                    )}`}
+                    style={`width: ${playerDiameter}px; height: ${playerDiameter}px; left: ${player.left}px; top: ${player.top}px; transform: translate(-50%, -50%);`}
+                    aria-label={`${player.name} (${player.status})`}
+                >
+                    <span
+                        class="font-minecraft text-xs tracking-widest drop-shadow-[1px_1px_0_rgba(0,0,0,0.65)]"
+                    >
+                        {player.name.slice(0, 1).toUpperCase()}
+                    </span>
+                </div>
+            {/each}
+        </div>
+    </div>
 </div>
 
 <style>
@@ -142,5 +254,11 @@
         image-rendering: pixelated;
         image-rendering: crisp-edges;
         display: block;
+    }
+
+    .player-token {
+        text-rendering: optimizeSpeed;
+        -webkit-font-smoothing: none;
+        -moz-osx-font-smoothing: grayscale;
     }
 </style>

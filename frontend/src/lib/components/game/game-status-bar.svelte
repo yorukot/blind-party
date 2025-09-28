@@ -1,28 +1,22 @@
 <script lang="ts">
     interface Props {
-        duration?: number;
-        label?: string;
-        autoStart?: boolean;
+        label: string;
+        displayText: string;
+        progress: number;
         fillColor?: string;
         borderColor?: string;
     }
 
     let {
-        duration = 90,
-        label = 'Round Countdown',
-        autoStart = true,
+        label,
+        displayText,
+        progress,
         fillColor = '#22c55e',
         borderColor
     }: Props = $props();
 
-    let remaining = $state(Math.max(duration, 0));
-    let progress = $derived(duration > 0 ? (remaining / duration) * 100 : 0);
-    let formattedTime = $derived.by(() => {
-        const totalSeconds = Math.max(remaining, 0);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    });
+    // Clamp progress between 0 and 100
+    let clampedProgress = $derived(Math.max(0, Math.min(100, progress)));
     let resolvedBorderColor = $derived(borderColor ?? fillColor);
     let containerStyle = $derived.by(() => {
         const frameColor = `color-mix(in srgb, ${resolvedBorderColor} 55%, rgba(15, 23, 42, 0.52))`;
@@ -37,33 +31,16 @@
             'linear-gradient(270deg, ' +
             `color-mix(in srgb, var(--countdown-bar-fill) 96%, white 4%) 0%, ` +
             `color-mix(in srgb, var(--countdown-bar-fill) 78%, rgba(0, 0, 0, 0.08)) 100%)`;
-        return `width: ${progress}%; background: ${barGradient}; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.35);`;
+        return `width: ${clampedProgress}%; background: ${barGradient}; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.35);`;
     });
-    let labelStyle = $derived(`color: color-mix(in srgb, var(--countdown-bar-fill) 82%, white 18%);`);
+    let labelStyle = $derived(
+        `color: color-mix(in srgb, var(--countdown-bar-fill) 82%, white 18%);`
+    );
     let timeStyle = $derived(
         'color: color-mix(in srgb, var(--countdown-bar-fill) 94%, white 6%); ' +
             'text-shadow: 2px 2px 0 rgba(0,0,0,0.7);'
     );
 
-    $effect(() => {
-        if (!autoStart || duration <= 0) {
-            return;
-        }
-
-        remaining = Math.min(remaining, duration);
-
-        const interval = setInterval(() => {
-            if (remaining === 0) {
-                return;
-            }
-
-            remaining = Math.max(0, remaining - 1);
-        }, 1000);
-
-        return () => {
-            clearInterval(interval);
-        };
-    });
 </script>
 
 <section
@@ -71,11 +48,17 @@
     style={containerStyle}
 >
     <div class="flex items-center justify-between text-xs tracking-[0.3em] uppercase">
-        <span class="font-minecraft text-sm drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]" style={labelStyle}>
+        <span
+            class="font-minecraft text-sm drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]"
+            style={labelStyle}
+        >
             {label}
         </span>
-        <span class="font-minecraft text-base drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]" style={timeStyle}>
-            {formattedTime}
+        <span
+            class="font-minecraft text-base drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]"
+            style={timeStyle}
+        >
+            {displayText}
         </span>
     </div>
     <div
