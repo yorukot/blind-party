@@ -36,7 +36,7 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "https://localhost:5173", "http://100.64.0.100:5173", "https://yorukot.github.io", "https://eclectic-sawine-7dd6a4.netlify.app", "https://bgayp.netlify.app"},
+		AllowedOrigins:   []string{"http://localhost:5173", "https://localhost:5173", "http://100.64.0.100:5173", "https://yorukot.github.io", "https://eclectic-sawine-7dd6a4.netlify.app", "https://bgayp.netlify.app", "https://frank-kam.itch.io"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With", "Upgrade", "Connection", "Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Protocol"},
 		ExposedHeaders:   []string{"Link"},
