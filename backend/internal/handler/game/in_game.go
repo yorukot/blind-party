@@ -205,9 +205,9 @@ func (h *GameHandler) handleEliminationCheckPhase(game *schema.Game) {
 		}
 
 		// Convert player position to map coordinates
-		// Player positions are 1-based (1.5, 2.5, etc.), map is 0-based
-		x := int(player.Position.X - 1)
-		y := int(player.Position.Y - 1)
+		// Player positions are 1-based, map is 0-based
+		x := int(player.Position.X)
+		y := int(player.Position.Y)
 
 		// Bounds checking
 		if x < 0 || x >= game.Config.MapWidth || y < 0 || y >= game.Config.MapHeight {
@@ -221,11 +221,38 @@ func (h *GameHandler) handleEliminationCheckPhase(game *schema.Game) {
 
 		// Check if player is standing on Air (eliminated) or wrong color
 		blockUnder := game.Map[y][x]
+		blockName := "Unknown"
+		targetName := "Unknown"
+
+		// Convert block values to readable names for debugging
+		if blockUnder == schema.Air {
+			blockName = "Air"
+		} else if blockUnder >= 0 && blockUnder <= 15 {
+			colorNames := []string{"White", "Orange", "Magenta", "LightBlue", "Yellow", "Lime", "Pink", "Gray", "LightGray", "Cyan", "Purple", "Blue", "Brown", "Green", "Red", "Black"}
+			blockName = colorNames[blockUnder]
+		}
+
+		if game.CurrentRound.ColorToShow >= 0 && game.CurrentRound.ColorToShow <= 15 {
+			colorNames := []string{"White", "Orange", "Magenta", "LightBlue", "Yellow", "Lime", "Pink", "Gray", "LightGray", "Cyan", "Purple", "Blue", "Brown", "Green", "Red", "Black"}
+			targetName = colorNames[game.CurrentRound.ColorToShow]
+		}
+
+		log.Printf("Player %s at position (%.2f, %.2f) -> map[%d][%d] = %s(%d), target: %s(%d)",
+			player.Name, player.Position.X, player.Position.Y, y, x, blockName, blockUnder, targetName, game.CurrentRound.ColorToShow)
+
 		if blockUnder == schema.Air || blockUnder != game.CurrentRound.ColorToShow {
 			h.eliminatePlayer(game, player)
 			eliminatedPlayers = append(eliminatedPlayers, player.Name)
-			log.Printf("Player %s eliminated (wrong block: %d, target: %d) at position (%.1f, %.1f)",
-				player.Name, blockUnder, game.CurrentRound.ColorToShow, player.Position.X, player.Position.Y)
+			if blockUnder == schema.Air {
+				log.Printf("Player %s eliminated (standing on Air) at position (%.1f, %.1f)",
+					player.Name, player.Position.X, player.Position.Y)
+			} else {
+				log.Printf("Player %s eliminated (wrong block: %s, target: %s) at position (%.1f, %.1f)",
+					player.Name, blockName, targetName, player.Position.X, player.Position.Y)
+			}
+		} else {
+			log.Printf("Player %s survives round %d - standing on correct block %s",
+				player.Name, game.CurrentRound.Number, blockName)
 		}
 	}
 
