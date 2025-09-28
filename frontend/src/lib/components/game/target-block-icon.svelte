@@ -8,7 +8,7 @@
     let { targetBlock }: Props = $props();
 
     // Use centralized block texture names to get the correct texture
-    const textureUrls = BLOCK_TEXTURE_NAMES.map(name => {
+    const textureUrls = BLOCK_TEXTURE_NAMES.map((name) => {
         const modules = import.meta.glob('$lib/assets/blocks/*.png', { as: 'url', eager: true });
         const path = `/src/lib/assets/blocks/${name}.png`;
         return modules[path] as string;
@@ -21,7 +21,7 @@
 </script>
 
 <div
-    class="absolute top-4 right-4 z-10 flex flex-col items-center gap-2 rounded-xl border-4 border-black bg-slate-900/50 p-3 opacity-50 shadow-[4px_4px_0_rgba(0,0,0,0.4)]"
+    class="absolute top-4 right-4 z-10 flex flex-col items-center gap-2 rounded-xl border-4 border-black bg-slate-900/50 p-3 opacity-90 shadow-[4px_4px_0_rgba(0,0,0,0.4)]"
 >
     <div class="text-center">
         <p
